@@ -1,7 +1,7 @@
 import type { DialogueLine, Speaker } from "./types.ts";
 
 /** Max spoken lines per ~7.5-min chapter. Keeps TTS neuron budget predictable. */
-export const MAX_LINES_PER_CHAPTER = 40;
+export const MAX_LINES_PER_CHAPTER = 44;
 export const MAX_WORDS_PER_LINE = 28;
 
 /** Words that must never appear in a kids story (horror/violence/cynicism). */
@@ -53,6 +53,10 @@ export function validateChapterBody(spoken: string | undefined | null): string[]
   if (!speakers.has("KID")) problems.push("the Kid must ask or answer in every chapter");
   return problems;
 }
+
+/** Typographic characters can trip up TTS and fonts, so normalize to plain ASCII. */
+export const asciiPunct = (t: string) =>
+  t.replace(/\s*[\u2013\u2014\u2015]\s*/g, ", ").replace(/[\u2010\u2011\u2012\u2212]/g, "-").replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\u2026/g, "...").replace(/\u00A0/g, " ");
 
 /** Split a validated chapter body into dialogue lines (throws on invalid). */
 export function splitDialogue(spoken: string): DialogueLine[] {
