@@ -102,7 +102,7 @@ export async function voiceNext(env: Env): Promise<string> {
 }
 
 function timed(clips: { start: number; end: number; words: { text: string; start: number; end: number }[] }[], parts: StoredLineClip[]) {
-  return clips.map((c, i) => ({ ...c, speaker: parts[i].speaker, text: parts[i].text, url: parts[i].url }));
+  return clips.map((c, i) => ({ index: i, duration: c.end - c.start, ...c, speaker: parts[i].speaker, text: parts[i].text, url: parts[i].url }));
 }
 
 /** Create a fresh episode outline + 8 pending chapters. Used by the cron when idle and by /api/run. */

@@ -39,13 +39,23 @@ export interface ClipPart {
   duration: number;
 }
 
+export interface WordTiming {
+  text: string;
+  start: number;
+  end: number;
+}
+
 export interface TimedClip extends ClipPart {
   index: number;
   start: number;
   end: number;
   url: string;
   speaker: Speaker;
+  words: WordTiming[];
 }
+
+/** A voiced, timed clip ready for the Studio renderer (what the worker stores in clips_json). */
+export type PreparedClip = TimedClip;
 
 export interface ChapterProps {
   index: number;

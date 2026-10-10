@@ -1,3 +1,6 @@
+/** SQLite has no "ADD COLUMN IF NOT EXISTS", so these run one by one and a duplicate-column error means "already done". */
+const ALTERS = [`ALTER TABLE episodes ADD COLUMN thumbnail_key TEXT`];
+
 /** Created lazily so there is no separate migration step in CI. Statements are idempotent. */
 const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS episodes (id TEXT PRIMARY KEY, title TEXT NOT NULL, theme_id TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'outline', outline_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
@@ -11,5 +14,12 @@ let ready = false;
 export async function ensureSchema(db: D1Database): Promise<void> {
   if (ready) return;
   await db.batch(STATEMENTS.map((s) => db.prepare(s)));
+  for (const s of ALTERS) {
+    try {
+      await db.prepare(s).run();
+    } catch (e) {
+      if (!/duplicate column/i.test((e as Error).message)) throw e;
+    }
+  }
   ready = true;
 }

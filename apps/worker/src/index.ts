@@ -7,6 +7,7 @@ import { createOutline, voiceNext } from "./voice-chapter.ts";
 export { EpisodeWorkflow, RechapterWorkflow };
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
+const newId = () => `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** The /api routes stay off (404) until ADMIN_TOKEN is set. Compared in constant time. */
 function authorized(req: Request, env: Env): boolean {
@@ -29,7 +30,7 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
     return json(q.results);
   }
 
-  const m = url.pathname.match(/^\/api\/episodes\/([\w-]+)(?:\/(chapters|status|upload-url|complete))?$/);
+  const m = url.pathname.match(/^\/api\/episodes\/([\w-]+)(?:\/(chapters|status|upload-url|complete|thumbnail))?$/);
   if (m) {
     const [, id, sub] = m;
     const row = await env.DB.prepare("SELECT * FROM episodes WHERE id = ?").bind(id).first<{ outline_json: string; status: string; title: string }>();
@@ -66,6 +67,25 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
       await env.DB.prepare("UPDATE episodes SET status = 'posted', updated_at = ? WHERE id = ?").bind(now(), id).run();
       return json({ ok: true });
     }
+    // the episode thumbnail (JPEG still, drawn in the browser like the video)
+    if (sub === "thumbnail" && req.method === "PUT") {
+      if (!req.body) return json({ error: "empty body" }, 400);
+      if (Number(req.headers.get("content-length") ?? 0) > 8_000_000) return json({ error: "thumbnail must be under 8 MB" }, 413);
+      const key = `episodes/${id}/thumb.jpg`;
+      await env.BUCKET.put(key, req.body, { httpMetadata: { contentType: "image/jpeg" } });
+      await env.DB.prepare("UPDATE episodes SET thumbnail_key = ?, updated_at = ? WHERE id = ?").bind(key, now(), id).run();
+      return json({ key, url: `${env.PUBLIC_BASE}/assets/${key}` });
+    }
+  }
+
+  // re-script + re-voice one chapter (runs on the nightly cron; the old render is dropped when it lands)
+  const r = url.pathname.match(/^\/api\/episodes\/([\w-]+)\/chapters\/(\d+)\/regenerate$/);
+  if (r && req.method === "POST") {
+    const [, id, idx] = r;
+    const row = await env.DB.prepare("SELECT status FROM chapters WHERE episode_id = ? AND idx = ?").bind(id, Number(idx)).first<{ status: string }>();
+    if (!row) return json({ error: "not found" }, 404);
+    await env.RECHAPTER_WORKFLOW.create({ id: newId(), params: { episodeId: id, chapter: Number(idx) } });
+    return json({ ok: true });
   }
 
   // the browser renders each chapter MP4 (free plan has no server-side renderer) and uploads it here
