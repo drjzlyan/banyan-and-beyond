@@ -2,11 +2,11 @@ import { youtubeDescription, youtubeTitle } from "@banyan/core";
 import type { Env } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 import { EpisodeWorkflow, RechapterWorkflow } from "./episode-workflow.ts";
+import { createOutline, voiceNext } from "./voice-chapter.ts";
 
 export { EpisodeWorkflow, RechapterWorkflow };
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
-const newId = () => `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** The /api routes stay off (404) until ADMIN_TOKEN is set. Compared in constant time. */
 function authorized(req: Request, env: Env): boolean {
@@ -81,8 +81,8 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
 
   if (url.pathname === "/api/run" && req.method === "POST") {
     const params = (await req.json().catch(() => ({}))) as { theme?: string };
-    const instance = await env.EPISODE_WORKFLOW.create({ id: newId(), params });
-    return json({ id: instance.id });
+    const id = await createOutline(env, params);
+    return json({ id });
   }
   return json({ error: "not found" }, 404);
 }
@@ -115,9 +115,10 @@ export default {
   },
 
   async scheduled(event: ScheduledController, env: Env): Promise<void> {
-    // Nightly: one chapter per night (neuron budget). Full episode ≈ 10-14 nights.
+    // Nightly: advance the queue one step (outline if idle, else script + voice
+    // the oldest pending chapter within the TTS char budget). Full episode ≈ 10-14 nights.
     if (event.cron === "0 22 * * *") {
-      await env.EPISODE_WORKFLOW.create({ id: newId(), params: {} });
+      await voiceNext(env).then((r) => console.log("voiceNext", r)).catch((e) => console.log("voiceNext", (e as Error).message));
       return;
     }
     // 10-min: finalize YouTube uploads (status checks only, no bytes through the Worker).

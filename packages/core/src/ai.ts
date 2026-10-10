@@ -30,6 +30,24 @@ export function extractAiText(result: unknown): unknown {
 export const STORY_MODEL = "@cf/openai/gpt-oss-120b";
 export const STORY_MODEL_FALLBACK = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
+/** Runner for models that return raw audio bytes (TTS). In a Worker: run with returnRawResponse then arrayBuffer(). */
+export type AudioRunner = (model: string, input: Record<string, unknown>) => Promise<ArrayBuffer>;
+
+export function cfRestAudioRunner(accountId: string, apiToken: string, fetchFn: typeof fetch = fetch): AudioRunner {
+  if (!accountId || !apiToken) throw new Error("CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are required");
+  return async (model, input) => {
+    const res = await fetchFn(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("audio/")) {
+      throw new Error(`Workers AI audio ${res.status} ${model}: ${(await res.text()).slice(0, 300)}`);
+    }
+    return res.arrayBuffer();
+  };
+}
+
 export function isNeuronsExhausted(e: unknown): boolean {
   const msg = (e as Error)?.message ?? String(e);
   return msg.includes("3036") || /neuron/i.test(msg);

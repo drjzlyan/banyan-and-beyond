@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildOutline, selectTheme } from "../src/selection.ts";
 import { themeById } from "../src/themes.ts";
 import { formatTimestamp, youtubeDescription, youtubeTitle } from "../src/youtube.ts";
-import { layoutLines, planLineClips } from "../src/voices.ts";
+import { layoutLines, planLineClips, speakerFor, splitNightlyShare, AJJA_SPEAKER, KID_SPEAKER } from "../src/voices.ts";
 import { validateChapterBody } from "../src/story.ts";
 
 describe("selection", () => {
@@ -56,8 +56,7 @@ describe("voices timeline", () => {
   });
 });
 
-describe("youtube helpers", () => {
-  it("formats timestamps", () => {
+describe("youtube helpers", () => {  it("formats timestamps", () => {
     expect(formatTimestamp(65)).toBe("1:05");
     expect(formatTimestamp(3665)).toBe("1:01:05");
   });
@@ -65,5 +64,24 @@ describe("youtube helpers", () => {
     expect(youtubeTitle("The Banyan Tale of Honesty")).toContain("Banyan and Beyond");
     const d = youtubeDescription("T", [{ title: "Chapter 1", start: 0 }], "Be kind.");
     expect(d).toContain("0:00");
+  });
+});
+
+describe("nightly voicing", () => {
+  it("maps speakers to Aura voices", () => {
+    expect(speakerFor("AJJA")).toBe(AJJA_SPEAKER);
+    expect(speakerFor("KID")).toBe(KID_SPEAKER);
+  });
+  it("splits lines into tonight's budget share and the remainder", () => {
+    const lines = Array.from({ length: 30 }, (_, i) => ({ speaker: "AJJA" as const, text: "a".repeat(200) }));
+    const { tonight, later } = splitNightlyShare(lines);
+    expect(tonight.length).toBeGreaterThan(0);
+    expect(tonight.length + later.length).toBe(30);
+    expect(tonight.join(" ").length).toBeLessThanOrEqual(3000 + 200);
+    expect(tonight.length).toBeLessThan(30);
+  });
+  it("always voices at least one line", () => {
+    const { tonight } = splitNightlyShare([{ speaker: "KID", text: "b".repeat(9000) }]);
+    expect(tonight).toHaveLength(1);
   });
 });
