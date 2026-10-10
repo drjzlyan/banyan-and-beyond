@@ -5,6 +5,7 @@ import { BanyanVideo } from "./BanyanVideo.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
 import { ApiError, api, getToken, putFile, setToken, type ChapterRow, type EpisodeDetail, type EpisodeRow } from "./api.ts";
 import { FPS, mouthEnvelope, pitchClips } from "./audio.ts";
+import { assembleEpisode, resumableUpload, uploadThumbnail, type UploadSession } from "./publish.ts";
 
 const THEME_COLORS: Record<string, string> = {
   honesty: "#e4e9f7", kindness: "#f7e4e4", duty: "#e6e0d2", courage: "#ffe9c4",
@@ -69,7 +70,9 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
   const [phase, setPhase] = useState<Record<number, string>>({});
   const [pct, setPct] = useState<Record<number, number>>({});
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-  const [yt, setYt] = useState<{ title: string; description: string; note: string } | null>(null);
+  const [yt, setYt] = useState<UploadSession | null>(null);
+  const [pubPhase, setPubPhase] = useState("");
+  const [pubPct, setPubPct] = useState(0);
   const { note, say } = useNote();
 
   const reload = useCallback(async () => {
@@ -161,9 +164,26 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
 
   async function ytInfo() {
     try {
-      const r = await api<{ title: string; description: string; note: string }>(`/api/episodes/${id}/upload-url`, { method: "POST" });
+      const r = await api<UploadSession>(`/api/episodes/${id}/upload-url`, { method: "POST" });
       setYt(r); say("", "");
     } catch (e) { say("err", e instanceof ApiError ? e.message : String(e)); }
+  }
+
+  async function publish() {
+    if (!yt) return;
+    if (!window.confirm("Assemble the 8 chapters and upload to YouTube as unlisted? This takes a while — keep this tab in the foreground.")) return;
+    try {
+      setPubPhase("assembling");
+      const file = await assembleEpisode(yt.parts, (stage, f) => { setPubPhase(stage); setPubPct(f * 0.3); });
+      setPubPhase("uploading");
+      const videoId = await resumableUpload(yt, file, (f) => setPubPct(0.3 + f * 0.65));
+      setPubPhase("thumbnail");
+      await uploadThumbnail(yt, videoId);
+      await api(`/api/episodes/${id}/complete`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ytVideoId: videoId }) });
+      setPubPct(1); setPubPhase("");
+      await reload();
+      say("ok", `Uploaded (YouTube id ${videoId}). The 10-minute cron marks it posted once processing finishes.`);
+    } catch (e) { setPubPhase(""); say("err", `Publish: ${(e as Error).message}`); }
   }
 
   if (!detail) return <div style={{ padding: 16 }}>Loading… {note?.text}</div>;
@@ -200,8 +220,10 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
         <div style={{ marginTop: 12, background: "#f4f1e6", padding: 12 }}>
           <p><b>{yt.title}</b></p>
           <pre style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{yt.description}</pre>
-          <p>{yt.note}</p>
-          <p>Full upload (concat + resumable PUT) lands in P4 — needs the owner's YouTube OAuth first.</p>
+          <p>{yt.parts.length} chapters ready · thumbnail {yt.thumbnailUrl ? "ready" : "missing — render it above first"}</p>
+          <button onClick={() => void publish()} disabled={!!pubPhase} style={{ padding: "12px 18px" }}>
+            {pubPhase ? `${pubPhase} ${Math.round(pubPct * 100)}%` : "Assemble + upload to YouTube (unlisted)"}
+          </button>
         </div>
       )}
     </div>

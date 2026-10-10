@@ -3,6 +3,7 @@ import type { Env } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 import { EpisodeWorkflow, RechapterWorkflow } from "./episode-workflow.ts";
 import { createOutline, voiceNext } from "./voice-chapter.ts";
+import { finalizeUploads, mintAccessToken } from "./youtube.ts";
 
 export { EpisodeWorkflow, RechapterWorkflow };
 
@@ -51,20 +52,35 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
       await env.DB.prepare("UPDATE episodes SET status = ?, updated_at = ? WHERE id = ?").bind(status, now(), id).run();
       return json({ ok: true });
     }
-    // Start a YouTube resumable upload session (bytes flow browser->YouTube, never through the Worker).
+    // Mint a short-lived upload token for the Studio browser: bytes flow
+    // browser -> YouTube directly, the Worker never proxies video.
     if (sub === "upload-url" && req.method === "POST") {
-      if (!env.YT_CLIENT_ID || !env.YT_REFRESH_TOKEN) return json({ error: "YouTube is not configured on the Worker yet" }, 409);
-      const chapters = (await env.DB.prepare("SELECT idx, duration FROM chapters WHERE episode_id = ? ORDER BY idx").bind(id).all<{ idx: number; duration: number }>()).results;
+      let access: string;
+      try {
+        access = await mintAccessToken(env);
+      } catch (e) {
+        return json({ error: (e as Error).message }, 409);
+      }
+      const chapters = (await env.DB.prepare("SELECT idx, duration FROM chapters WHERE episode_id = ? AND video_key IS NOT NULL ORDER BY idx").bind(id).all<{ idx: number; duration: number }>()).results;
+      if (chapters.length !== 8) return json({ error: `episode needs 8 rendered chapters, has ${chapters.length}` }, 409);
       const outline = JSON.parse(row.outline_json) as { theme: { moral: string } };
       const description = youtubeDescription(youtubeTitle(row.title), chapters.map((c, i) => ({ title: `Chapter ${i + 1}`, start: 0 })), outline.theme.moral);
+      const urls = (await env.DB.prepare("SELECT video_key FROM chapters WHERE episode_id = ? ORDER BY idx").bind(id).all<{ video_key: string }>()).results;
+      const thumb = await env.DB.prepare("SELECT thumbnail_key FROM episodes WHERE id = ?").bind(id).first<{ thumbnail_key: string | null }>();
       await env.DB.prepare("INSERT OR REPLACE INTO yt_uploads (episode_id, status, updated_at) VALUES (?, 'session', ?)").bind(id, now()).run();
-      return json({ ok: true, title: youtubeTitle(row.title), description, note: "bytes upload from the Studio browser; Worker never proxies video" });
+      return json({
+        accessToken: access,
+        title: youtubeTitle(row.title),
+        description,
+        parts: urls.map((u) => `${env.PUBLIC_BASE}/assets/${u.video_key}`),
+        thumbnailUrl: thumb?.thumbnail_key ? `${env.PUBLIC_BASE}/assets/${thumb.thumbnail_key}` : null,
+      });
     }
     if (sub === "complete" && req.method === "POST") {
       const { ytVideoId } = (await req.json().catch(() => ({}))) as { ytVideoId?: string };
       if (!ytVideoId) return json({ error: "ytVideoId required" }, 400);
-      await env.DB.prepare("INSERT OR REPLACE INTO yt_uploads (episode_id, yt_video_id, status, updated_at) VALUES (?, ?, 'posted', ?)").bind(id, ytVideoId, now()).run();
-      await env.DB.prepare("UPDATE episodes SET status = 'posted', updated_at = ? WHERE id = ?").bind(now(), id).run();
+      await env.DB.prepare("INSERT OR REPLACE INTO yt_uploads (episode_id, yt_video_id, status, updated_at) VALUES (?, ?, 'uploading', ?)").bind(id, ytVideoId, now()).run();
+      await env.DB.prepare("UPDATE episodes SET status = 'uploading', updated_at = ? WHERE id = ?").bind(now(), id).run();
       return json({ ok: true });
     }
     // the episode thumbnail (JPEG still, drawn in the browser like the video)
@@ -142,5 +158,6 @@ export default {
       return;
     }
     // 10-min: finalize YouTube uploads (status checks only, no bytes through the Worker).
+    await finalizeUploads(env).then((r) => console.log("finalizeUploads", r)).catch((e) => console.log("finalizeUploads", (e as Error).message));
   },
 } satisfies ExportedHandler<Env>;

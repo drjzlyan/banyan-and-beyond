@@ -6,3 +6,4 @@ export * from "./generate.ts";
 export * from "./voices.ts";
 export * from "./ai.ts";
 export * from "./youtube.ts";
+export * from "./youtube-upload.ts";

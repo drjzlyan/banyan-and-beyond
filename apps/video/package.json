@@ -9,14 +9,16 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@banyan/core": "workspace:*",
+    "@ffmpeg/ffmpeg": "0.12.15",
+    "@ffmpeg/util": "0.12.2",
     "@remotion/google-fonts": "4.0.529",
     "@remotion/media": "4.0.529",
     "@remotion/player": "4.0.529",
     "@remotion/web-renderer": "4.0.529",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "remotion": "4.0.529",
-    "@banyan/core": "workspace:*"
+    "remotion": "4.0.529"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
