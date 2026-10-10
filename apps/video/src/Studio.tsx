@@ -193,6 +193,7 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
       <button onClick={onBack}>← All episodes</button>
       <h2>{detail.title} — {detail.status}</h2>
       <p>Moral: {moral}</p>
+      {detail.yt_upload && <p>YouTube: {detail.yt_upload.status}{detail.yt_upload.yt_video_id ? ` (${detail.yt_upload.yt_video_id})` : ""}{detail.yt_upload.error ? ` — ${detail.yt_upload.error}` : ""}</p>}
       {note?.text && <p>{note.text}</p>}
       <ol>
         {detail.chapters.map((c) => (

@@ -39,7 +39,8 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
 
     if (!sub && req.method === "GET") {
       const chapters = (await env.DB.prepare("SELECT idx, title, status, duration, video_key, updated_at FROM chapters WHERE episode_id = ? ORDER BY idx").bind(id).all()).results;
-      return json({ ...row, outline: JSON.parse(row.outline_json), chapters });
+      const yt = await env.DB.prepare("SELECT status, yt_video_id, error, updated_at FROM yt_uploads WHERE episode_id = ?").bind(id).first();
+      return json({ ...row, outline: JSON.parse(row.outline_json), chapters, yt_upload: yt ?? null });
     }
     if (sub === "chapters" && req.method === "GET") {
       const chapters = (await env.DB.prepare("SELECT * FROM chapters WHERE episode_id = ? ORDER BY idx").bind(id).all()).results;
@@ -64,7 +65,13 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
       const chapters = (await env.DB.prepare("SELECT idx, duration FROM chapters WHERE episode_id = ? AND video_key IS NOT NULL ORDER BY idx").bind(id).all<{ idx: number; duration: number }>()).results;
       if (chapters.length !== 8) return json({ error: `episode needs 8 rendered chapters, has ${chapters.length}` }, 409);
       const outline = JSON.parse(row.outline_json) as { theme: { moral: string } };
-      const description = youtubeDescription(youtubeTitle(row.title), chapters.map((c, i) => ({ title: `Chapter ${i + 1}`, start: 0 })), outline.theme.moral);
+      let at = 0;
+      const stamps = chapters.map((c, i) => {
+        const s = { title: `Chapter ${i + 1}`, start: Math.round(at) };
+        at += c.duration || 450;
+        return s;
+      });
+      const description = youtubeDescription(youtubeTitle(row.title), stamps, outline.theme.moral);
       const urls = (await env.DB.prepare("SELECT video_key FROM chapters WHERE episode_id = ? ORDER BY idx").bind(id).all<{ video_key: string }>()).results;
       const thumb = await env.DB.prepare("SELECT thumbnail_key FROM episodes WHERE id = ?").bind(id).first<{ thumbnail_key: string | null }>();
       await env.DB.prepare("INSERT OR REPLACE INTO yt_uploads (episode_id, status, updated_at) VALUES (?, 'session', ?)").bind(id, now()).run();

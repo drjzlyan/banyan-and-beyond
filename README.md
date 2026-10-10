@@ -31,10 +31,10 @@ Everything runs on **Cloudflare's free tier** and is deployed **only by GitHub A
 
 | Path | What it is |
 |---|---|
-| `packages/core` | Pure TypeScript + tests: themes, selection, story validator, voice timeline, YouTube helpers |
-| `apps/worker` | Cloudflare Worker: Workflows, crons, admin API, public `/assets/*` from R2, serves the Studio |
-| `apps/video` | Remotion composition (`BanyanVideo.tsx`), Studio dashboard (`Studio.tsx`) |
-| `.github/workflows` | `ci.yml` and `deploy.yml` |
+| `packages/core` | Pure TypeScript + tests: themes, selection, story validator, two-pass chapter generation, voice timeline + nightly budget, YouTube helpers + upload builders |
+| `apps/worker` | Cloudflare Worker: nightly outline/script/voice engine, admin API, YouTube token mint + finalize cron, public `/assets/*` from R2, serves the Studio |
+| `apps/video` | Remotion chapter composition (`BanyanVideo.tsx`), thumbnail (`Thumbnail.tsx`), Studio dashboard (`Studio.tsx`), browser pitch-shift + lip-sync, ffmpeg.wasm concat + resumable YouTube upload |
+| `.github/workflows` | `ci.yml` and `deploy.yml` (uploads `ADMIN_TOKEN` only; `YT_*` join when the owner's OAuth is done) |
 | `docs/PROGRESS.md` | Status, decisions, runbook, next steps |
 
 ## Develop

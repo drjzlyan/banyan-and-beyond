@@ -51,4 +51,5 @@ export interface EpisodeDetail {
   outline: { theme: { id: string; valueWord: string; moral: string }; kind: string; title: string };
   chapters: ChapterRow[];
   thumbnail_key?: string | null;
+  yt_upload?: { status: string; yt_video_id: string | null; error: string | null } | null;
 }
