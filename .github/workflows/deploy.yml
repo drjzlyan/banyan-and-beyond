@@ -38,16 +38,11 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/worker
           command: deploy
+          # YT_* join this list in P4 when the OAuth consent flow is done.
           secrets: |
             ADMIN_TOKEN
-            YT_CLIENT_ID
-            YT_CLIENT_SECRET
-            YT_REFRESH_TOKEN
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
 
       - name: Trigger an episode
         if: ${{ inputs.run_pipeline }}
