@@ -1,0 +1,9 @@
+{
+  "name": "banyan-and-beyond",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "pnpm -r test"
+  },
+  "packageManager": "pnpm@11.17.0"
+}

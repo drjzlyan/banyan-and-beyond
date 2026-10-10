@@ -1,0 +1,11 @@
+.dev.vars
+.DS_Store
+.env
+.wrangler
+**/.DS_Store
+apps/video/dev
+apps/video/public/demo
+apps/worker/public
+dist
+node_modules
+out

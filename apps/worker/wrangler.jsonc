@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "banyan",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [{ "pattern": "banyan-and-beyond.dbldr.app", "custom_domain": true }],
+  "triggers": { "crons": ["0 22 * * *", "*/10 * * * *"] },
+  // The dashboard (apps/video, built to ./public/studio) is served as free, unlimited static assets.
+  "assets": { "directory": "./public" },
+  "ai": { "binding": "AI" },
+  // Wrangler creates these on first deploy (no IDs needed), so provisioning stays inside GitHub Actions.
+  "d1_databases": [{ "binding": "DB" }],
+  "r2_buckets": [{ "binding": "BUCKET" }],
+  "workflows": [
+    { "name": "banyan-episode", "binding": "EPISODE_WORKFLOW", "class_name": "EpisodeWorkflow" },
+    { "name": "banyan-rechapter", "binding": "RECHAPTER_WORKFLOW", "class_name": "RechapterWorkflow" }
+  ],
+  "vars": {
+    "CF_ACCOUNT_ID": "e77dfe2fc79108479a74dd518496f17e",
+    "PUBLIC_BASE": "https://banyan-and-beyond.dbldr.app"
+  },
+  "observability": { "enabled": true }
+}
