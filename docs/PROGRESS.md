@@ -30,14 +30,6 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
 
 1 hr ≈ 45k chars → ~123k TTS neurons vs 10k/day free. Cron voices ~1 chapter/night (`0 22 * * *`); episode ready in ~10–14 nights; cadence 1 episode / 2 weeks, 2 staggered in flight.
 
-## 6. Deferred owner items (everything else is built)
-
-1. **Ear check** — play `/tmp/banyan-voice-*.mp3` (regenerate with `pnpm --filter @banyan/core voice-demo`); confirm Luna works for Ajja at 0.9x and pick the Kid voice (code default: Luna at 1.3x).
-2. **YouTube OAuth** — create a Google Cloud project, enable YouTube Data API v3, OAuth consent (external) + desktop/web client, run the consent flow to get a refresh token with `youtube.upload` scope.
-3. **Secrets** — `gh secret set YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN`, then add them to `deploy.yml`'s secrets block (currently ADMIN_TOKEN only so deploys stay green).
-4. **First live run** — Studio → Make an episode now → let ~2 weeks of crons voice it (or watch `voiceNext` logs) → render chapters in a foreground Chrome tab → approve → assemble + upload unlisted → flip to public in YouTube Studio.
-5. **Render QA** — watch one full chapter render for A/V sync, caption timing, puppet mouth; check the thumbnail on a phone.
-
 ## 5. Session log (oldest first)
 
 - **2026-10-10 (P0)** — Scaffolded monorepo from chota.vc pattern. Next: `pnpm install`, typecheck, tests, wrangler dry-run, git init + first push, secrets.
@@ -49,3 +41,11 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
 - **2026-10-10 (P3 render)** — Real `BanyanVideo` Remotion composition (1280×720/24fps, puppets + lip-sync + word captions + moral card + progress), `Thumbnail` still, per-speaker browser pitch-shift + mouth envelope (ported from chota), Studio per-chapter render→upload→approve + thumbnail + script view + regenerate. Next: P4 YouTube.
 - **2026-10-10 (P4 YouTube)** — Pure upload builders (`youtube-upload.ts`, 6 tests) + worker token-mint/finalize-cron + Studio assemble (ffmpeg.wasm concat) + resumable upload with progress + thumbnail set + complete. Real chapter timestamps from voiced durations. Deferred: owner OAuth + secrets + live upload test. Next: P5 polish.
 - **2026-10-10 (P5 + done)** — Detail endpoint includes yt_upload state; README updated. 23 tests pass. **Build complete; deferred owner items in §6.**
+## 6. Deferred owner items (everything else is built)
+
+1. **Ear check** — play `/tmp/banyan-voice-*.mp3` (regenerate with `pnpm --filter @banyan/core voice-demo`); confirm Luna works for Ajja at 0.9x and pick the Kid voice (code default: Luna at 1.3x).
+2. **YouTube OAuth** — create a Google Cloud project, enable YouTube Data API v3, OAuth consent (external) + desktop/web client, run the consent flow to get a refresh token with `youtube.upload` scope.
+3. **Secrets** — `gh secret set YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN`, then add them to `deploy.yml`'s secrets block (currently ADMIN_TOKEN only so deploys stay green).
+4. **First live run** — Studio → Make an episode now → let ~2 weeks of crons voice it (or watch `voiceNext` logs) → render chapters in a foreground Chrome tab → approve → assemble + upload unlisted → flip to public in YouTube Studio.
+5. **Render QA** — watch one full chapter render for A/V sync, caption timing, puppet mouth; check the thumbnail on a phone.
+
