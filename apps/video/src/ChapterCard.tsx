@@ -1,4 +1,4 @@
-import { analyzeChapter, isChapterVoiced, type VoiceSettings } from "@banyan/core";
+import { TARGET_CHAPTER_SECONDS, analyzeChapter, isChapterVoiced, parseScript, type VoiceSettings } from "@banyan/core";
 import { useMemo, useState } from "react";
 import type { ChapterRow } from "./api.ts";
 import { StatusPill, fmtMin, usePlayer } from "./ui.tsx";
@@ -13,6 +13,7 @@ export function ChapterCard(props: {
   phase?: string;
   pct?: number;
   onRender: () => void;
+  onPreview: () => void;
   onRegenerate: () => void;
   onRevoice: () => void;
 }) {
@@ -25,7 +26,11 @@ export function ChapterCard(props: {
     ajjaPitch: voices.ajjaPitch, kidPitch: voices.kidPitch, finalChapter: row.idx === 7,
   }), [row.spoken, row.idx, clips, voices.ajjaPitch, voices.kidPitch]);
   const voiced = isChapterVoiced(row.status);
-  const lines = row.spoken ? row.spoken.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+  // script rows in order; sound cues sit between spoken lines, and clips index spoken lines only
+  const rows = (() => {
+    let n = 0;
+    return parseScript(row.spoken ?? "").map((it) => (it?.kind === "line" ? { ...it, n: n++ } : it));
+  })();
   // clips voiced before the Voice Lab carry no voice field; they were all Luna
   const oldVoices = [...new Set(clips.map((c) => c.voice ?? "luna"))]
     .filter((v) => v !== voices.ajjaVoice && v !== voices.kidVoice);
@@ -55,10 +60,11 @@ export function ChapterCard(props: {
       ) : (
         <>
           <div className="stats">
-            <div className="stat"><b>{fmtMin(a.pitchedSeconds)}</b><span>{a.secondsEstimated ? "est. length" : "length at your pitch"} · target 7:30</span></div>
+            <div className="stat"><b>{fmtMin(a.pitchedSeconds)}</b><span>{a.secondsEstimated ? "est. length" : "length at your pitch"} · target {fmtMin(TARGET_CHAPTER_SECONDS)}</span></div>
             <div className="stat"><b>{a.words}</b><span>words · {a.lines} lines</span></div>
             <div className="stat"><b>{a.ajjaLines} / {a.kidLines}</b><span>Ajja / Kid lines</span></div>
             <div className="stat"><b>{clips.length}/{a.lines}</b><span>lines voiced</span></div>
+            <div className="stat"><b>{a.sfx}</b><span>sound effects · {a.avgLineWords.toFixed(1)} words/line</span></div>
             <div className="stat"><b>{a.nightsToVoice}</b><span>nights to voice ({a.ttsChars} chars)</span></div>
           </div>
           <div className="bar" aria-label="voicing progress"><i style={{ width: `${a.lines ? (clips.length / a.lines) * 100 : 0}%` }} /></div>
@@ -77,27 +83,30 @@ export function ChapterCard(props: {
           title={voiced ? "Render this chapter in your browser and upload the MP4" : "Wait until the chapter is fully voiced"}>
           {phaseLabel ?? (row.video_key ? "Re-render" : "Render + upload")}
         </button>
+        <button className="btn" onClick={props.onPreview} disabled={!!props.phase || !voiced} title="Watch it with sound effects and animation, without rendering">▶ Preview video</button>
         {clips.length > 0 && (player.playing
           ? <button className="btn" onClick={player.stop}>■ Stop</button>
-          : <button className="btn" onClick={() => playFrom(0)}>▶ Listen</button>)}
-        {lines.length > 0 && <button className="btn" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Hide script" : "Script"}</button>}
+          : <button className="btn" onClick={() => playFrom(0)}>♪ Listen</button>)}
+        {rows.length > 0 && <button className="btn" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Hide script" : "Script"}</button>}
         <button className="btn" disabled={props.locked || !voiced} onClick={props.onRevoice} title="Same script, current voices">Re-voice</button>
         <button className="btn danger" disabled={props.locked} onClick={props.onRegenerate}>New script</button>
       </div>
 
       {open && (
         <ol className="script">
-          {lines.map((l, i) => {
-            const m = l.match(/^(AJJA|KID):\s*(.+)$/);
-            const who = m?.[1] ?? "?";
+          {rows.map((it, i) => {
+            if (!it) return <li key={i}><span /><span className="who">?</span><span className="small" style={{ color: "var(--bad)" }}>unreadable row</span></li>;
+            if (it.kind === "sfx") return <li key={i} className="sfx"><span /><span className="who">SFX</span><span className="small muted">♪ {it.id}</span></li>;
+            const id = `l${it.n}`;
+            const c = clips[it.n];
             return (
-              <li key={i} className={`${player.playing === `l${i}` ? "playing" : ""} ${a.hookLines.includes(i + 1) ? "hook" : ""}`}>
-                <button className="btn tiny" aria-label={`Play line ${i + 1}`} disabled={!clips[i]}
-                  onClick={() => (player.playing === `l${i}` ? player.stop() : player.play(`l${i}`, clips[i].url, rate(clips[i].speaker)))}>
-                  {player.playing === `l${i}` ? "■" : "▶"}
+              <li key={i} className={`${player.playing === id ? "playing" : ""} ${a.hookLines.includes(it.n + 1) ? "hook" : ""}`}>
+                <button className="btn tiny" aria-label={`Play line ${it.n + 1}`} disabled={!c}
+                  onClick={() => (player.playing === id ? player.stop() : player.play(id, c.url, rate(c.speaker)))}>
+                  {player.playing === id ? "■" : "▶"}
                 </button>
-                <span className={`who ${who}`}>{who === "AJJA" ? "Ajja" : who === "KID" ? "Kid" : who}</span>
-                <span>{m?.[2] ?? l}</span>
+                <span className={`who ${it.speaker}`}>{it.speaker === "AJJA" ? "Ajja" : "Kid"}</span>
+                <span>{it.text}</span>
               </li>
             );
           })}

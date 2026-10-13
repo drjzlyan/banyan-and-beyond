@@ -1,11 +1,13 @@
-import { CHAPTER_VIDEO_BITRATE, DEFAULT_VOICE_SETTINGS, MAX_CHAPTER_VIDEO_BYTES, analyzeChapter, isChapterVoiced, type PreparedClip, type VoiceSettings } from "@banyan/core";
+import { CHAPTER_VIDEO_BITRATE, DEFAULT_VOICE_SETTINGS, TARGET_EPISODE_SECONDS, sfxCues, MAX_CHAPTER_VIDEO_BYTES, analyzeChapter, isChapterVoiced, type PreparedClip, type VoiceSettings } from "@banyan/core";
 import { renderMediaOnWeb, renderStillOnWeb } from "@remotion/web-renderer";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BanyanVideo } from "./BanyanVideo.tsx";
+import { Player } from "@remotion/player";
+import { BanyanVideo, type BanyanVideoProps } from "./BanyanVideo.tsx";
 import { ChapterCard } from "./ChapterCard.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
 import { ApiError, api, putFile, type ChapterRow, type EpisodeDetail, type EpisodeRow } from "./api.ts";
 import { FPS, mouthEnvelope, pitchClips } from "./audio.ts";
+import { AMBIENCE_SECONDS, SFX_SECONDS, ambienceUrl, sfxUrl } from "./sfx.ts";
 import { assembleEpisode, resumableUpload, uploadThumbnail, type UploadSession } from "./publish.ts";
 import { Note, StatusPill, fmtMin, useNote } from "./ui.tsx";
 
@@ -26,6 +28,7 @@ export function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) 
   const [yt, setYt] = useState<UploadSession | null>(null);
   const [pubPhase, setPubPhase] = useState("");
   const [pubPct, setPubPct] = useState(0);
+  const [preview, setPreview] = useState<{ n: number; props: BanyanVideoProps; frames: number } | null>(null);
   const { note, say } = useNote();
 
   const reload = useCallback(async () => {
@@ -69,18 +72,33 @@ export function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) 
     : totals.renderedChapters < rows.length ? 1
     : !detail.thumbnail_key ? 2 : 3;
 
+  /** Pitch the voices, place and synthesize the sound cues, and build the composition props. */
+  async function prepareChapter(n: number): Promise<{ props: BanyanVideoProps; frames: number }> {
+    const fresh = await api<ChapterRow[]>(`/api/episodes/${id}/chapters`);
+    const row = fresh.find((r) => r.idx === n);
+    if (!row) throw new Error(`chapter ${n + 1} not found`);
+    const stored = JSON.parse(row.clips_json || "[]") as PreparedClip[];
+    if (!isChapterVoiced(row.status) || !stored.length) throw new Error("not fully voiced yet — the nightly cron is still working");
+    const pitched = await pitchClips(stored, voices.ajjaPitch, voices.kidPitch, sfxCues(row.spoken));
+    const mouth = await mouthEnvelope(pitched.clips, pitched.duration);
+    const cues = await Promise.all(pitched.cues.map(async (c) => ({ ...c, url: await sfxUrl(c.id), seconds: SFX_SECONDS[c.id] })));
+    const props: BanyanVideoProps = {
+      title: row.title, episodeTitle: detail?.title, chapterNo: n + 1, themeColor, moral,
+      clips: pitched.clips, duration: pitched.duration, mouth, cues, ambienceUrl: await ambienceUrl(), ambienceSeconds: AMBIENCE_SECONDS,
+    };
+    return { props, frames: Math.ceil(pitched.duration * FPS) + 20 };
+  }
+
+  async function previewChapter(n: number) {
+    setPhase((p) => ({ ...p, [n]: "preparing" }));
+    try { setPreview({ n, ...(await prepareChapter(n)) }); }
+    catch (e) { say("err", `Chapter ${n + 1}: ${(e as Error).message}`); } finally { setPhase((p) => ({ ...p, [n]: "" })); }
+  }
+
   async function renderChapter(n: number) {
     setPhase((p) => ({ ...p, [n]: "preparing" }));
     try {
-      const fresh = await api<ChapterRow[]>(`/api/episodes/${id}/chapters`);
-      const row = fresh.find((r) => r.idx === n);
-      if (!row) throw new Error(`chapter ${n + 1} not found`);
-      const stored = JSON.parse(row.clips_json || "[]") as PreparedClip[];
-      if (!isChapterVoiced(row.status) || !stored.length) throw new Error("not fully voiced yet — the nightly cron is still working");
-      const pitched = await pitchClips(stored, voices.ajjaPitch, voices.kidPitch);
-      const mouth = await mouthEnvelope(pitched.clips, pitched.duration);
-      const props = { title: row.title, themeColor, moral, clips: pitched.clips, duration: pitched.duration, mouth };
-      const frames = Math.ceil(pitched.duration * FPS) + 20;
+      const { props, frames } = await prepareChapter(n);
       setPhase((p) => ({ ...p, [n]: "rendering" }));
       const { getBlob } = await renderMediaOnWeb({
         composition: { id: "banyan-ch", component: BanyanVideo, durationInFrames: frames, fps: FPS, width: 1280, height: 720, defaultProps: props },
@@ -178,7 +196,7 @@ export function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) 
           <div className="stat"><b>{totals.voicedChapters}/{rows.length}</b><span>chapters voiced</span></div>
           <div className="stat"><b>{totals.renderedChapters}/{rows.length}</b><span>chapters rendered</span></div>
           <div className="stat"><b>{fmtMin(totals.seconds)}</b><span>scripted so far ({totals.scripted} ch)</span></div>
-          <div className="stat"><b>{totals.projected ? fmtMin(totals.projected) : "–"}</b><span>projected episode · target 60:00</span></div>
+          <div className="stat"><b>{totals.projected ? fmtMin(totals.projected) : "–"}</b><span>projected episode · target {fmtMin(TARGET_EPISODE_SECONDS)}</span></div>
         </div>
         {detail.yt_upload && (
           <p className="small">YouTube: <span className={`pill ${detail.yt_upload.status === "failed" ? "bad" : "ok"}`}>{detail.yt_upload.status}</span>
@@ -188,8 +206,21 @@ export function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) 
       </div>
       <Note note={note} />
 
+      {preview && (
+        <div className="card">
+          <div className="row spread">
+            <h3 style={{ margin: 0 }}>Preview: chapter {preview.n + 1}</h3>
+            <button className="btn" onClick={() => setPreview(null)}>Close preview</button>
+          </div>
+          <p className="small muted">Exactly what Render produces: voices at your pitch, sound effects and animation. Scrub freely; nothing is uploaded.</p>
+          <Player component={BanyanVideo} inputProps={preview.props} durationInFrames={preview.frames} fps={FPS}
+            compositionWidth={1280} compositionHeight={720} controls style={{ width: "100%", borderRadius: 10 }} acknowledgeRemotionLicense />
+        </div>
+      )}
+
       {rows.map((r) => (
         <ChapterCard key={r.idx} row={r} voices={voices} locked={locked} phase={phase[r.idx]} pct={pct[r.idx]}
+          onPreview={() => void previewChapter(r.idx)}
           onRender={() => void renderChapter(r.idx)} onRegenerate={() => void remake(r.idx, "regenerate")} onRevoice={() => void remake(r.idx, "revoice")} />
       ))}
 

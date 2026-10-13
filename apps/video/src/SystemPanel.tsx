@@ -34,7 +34,10 @@ export function SystemPanel() {
     } catch {
       out.push({ label: "Voices", state: "warn", detail: "settings API missing: the Worker is older than this Studio build; deploy main" });
     }
-    out.push({ label: "Browser renderer", state: typeof VideoEncoder === "function" ? "ok" : "bad", detail: typeof VideoEncoder === "function" ? "WebCodecs available (Chrome/Edge desktop)" : "no WebCodecs: render in desktop Chrome" });
+    // the exact encoder Render uses: H.264 720p at the chapter bitrate (open-source Chromium lacks it; Chrome/Edge have it)
+    let h264 = false;
+    try { h264 = typeof VideoEncoder === "function" && !!(await VideoEncoder.isConfigSupported({ codec: "avc1.64001f", width: 1280, height: 720, bitrate: 1_000_000 })).supported; } catch { h264 = false; }
+    out.push({ label: "Browser renderer", state: h264 ? "ok" : "bad", detail: h264 ? "H.264 encoding available" : "this browser can't encode H.264 video; render in desktop Chrome or Edge" });
     setChecks(out);
     setBusy(false);
   }, []);
@@ -80,8 +83,8 @@ export function SystemPanel() {
         <h3>Free-tier budget</h3>
         <p className="small" style={{ marginTop: 0 }}>
           Aura-2 costs about 2,727 neurons per 1,000 characters, against 10,000 free neurons a day. The nightly cron voices at most {NIGHTLY_TTS_CHAR_BUDGET.toLocaleString()} characters, and Voice Lab previews come out of the same daily allowance.
-          The first live chapter was 3,300 characters (two nights) and ran 3.9 minutes. At that size an 8-chapter episode is about 31 minutes and takes 16 nights.
-          A true 1-hour episode needs chapters about twice as long, so roughly a month of nights per episode.
+          Chapters now aim for about 6 minutes (about 840 words, about 4,800 characters), so each takes two nights to voice:
+          an 8-chapter episode is about 48 minutes and is ready in about 16 nights. Sound effects are made in your browser and cost no neurons.
         </p>
       </div>
     </>

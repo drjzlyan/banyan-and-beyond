@@ -4,7 +4,7 @@ _Last updated: 2026-10-13 (pre-live-run fixes, branch `fix/first-live-run`). Kee
 
 ## 1. Goal
 
-YouTube channel **Banyan and Beyond**: Ajja tells 1-hr episodes (8 × ~7.5-min chapters) for kids 6–12. Social psychology, morality, good behaviour — right-rooted, open-minded. Storybook SVG scenes, two voices (Ajja + Kid), API-assisted YouTube upload.
+YouTube channel **Banyan and Beyond**: Ajja tells ~48-min episodes (8 × ~6-min chapters, owner's choice 2026-10-13; originally 1 hr) for kids 6–12, in simple words, with browser-synthesized sound effects and an animated scene. Social psychology, morality, good behaviour — right-rooted, open-minded. Storybook SVG scenes, two voices (Ajja + Kid), API-assisted YouTube upload.
 
 ## 2. Hard constraints (never violate)
 
@@ -25,12 +25,13 @@ YouTube channel **Banyan and Beyond**: Ajja tells 1-hr episodes (8 × ~7.5-min c
 | YouTube resumable upload + finalize cron | ✅ P4 done, OAuth/secrets/live test deferred |
 | Pre-live-run review: regenerate, approval gate, Range, free-tier limits | ✅ fixed on `fix/first-live-run` (not yet merged/deployed) |
 | Studio v2: Voice Lab, chapter analysis, System tab (chotavc-style) | ✅ on `fix/first-live-run`, UI-tested against a mock; not deployed |
+| Simple kid-friendly scripts, SFX cues, browser-synthesized sound, animated scene, Preview | ✅ on `fix/first-live-run`; headless render verified (WebM); not deployed |
 
 Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https://banyan-and-beyond.dbldr.app/health`.
 
 ## 4. Neuron budget (do not re-derive)
 
-1 hr ≈ 45k chars → ~123k TTS neurons vs 10k/day free. Cron voices ~1 chapter/night (`0 22 * * *`); episode ready in ~10–14 nights; cadence 1 episode / 2 weeks, 2 staggered in flight.
+~6-min chapter ≈ 840 words ≈ 4,800 chars → 2 nights each at the 3,000-char nightly budget (Aura-2 ≈ 2,727 neurons/1k chars vs 10k/day free; scripting shares that budget). Episode ready in ~16 nights; 2 staggered in flight.
 
 ## 5. Session log (oldest first)
 
@@ -54,6 +55,19 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
   - **Prompt fix:** only the second half gets the hook, and chapter 1 doesn't re-greet.
 
   42 tests pass. Playwright drove every Studio flow against a mock API seeded with the real chapter. A temporary verification page (chapter analysis, pitch listening, voice picker, length options) was published as a private artifact: https://claude.ai/artifact/5FBpyv4M6xhhHdYVR8EtAH. **Open decisions for the owner:** (a) Ajja/Kid voices and pitch, (b) chapter length. Keeping ~4 min chapters gives 31-min episodes; 7.5 min means about 53k chars and ~24 nights per episode. (c) Optionally, have `voiceNext` spend leftover nightly budget on the next chapter; today it stops after finishing a chapter, so 3.4k chars uses 2 full nights. **Push blocked:** the Claude GitHub App isn't installed for `drjzlyan`, so this session couldn't push. The branch exists only in the session container until the owner pushes it or installs the app.
+- **2026-10-13 (owner picks + simpler, livelier stories)** — The owner chose, in the voice-check page: **Ajja = pluto @ 0.80×, Kid = iris @ 1.25×** (now the code defaults; the Voice Lab overrides), and **~6-min chapters** (owner's middle option; episodes ≈ 48 min). Note: the page only had Luna recordings, so Pluto and Iris themselves still need an ear check in the Voice Lab after deploy (or with `VOICES=pluto,iris voice-demo`). The owner also asked for stories that are **simpler for kids, with more sound effects and more engaging sound and animation**. Built:
+  - **Generator:** 3 parts × ~280 words (`CHAPTER_PARTS`), chapter 720–1050 words, only the last part ends on the hook. The prompt now asks for everyday words, no abstract metaphors, sound words, named characters, a playful Kid, Ajja asking the viewer questions, and a small repeated chorus. Lines are 6–14 words (validator hard cap 20, up to 94 lines).
+  - **Sound cues:** the script carries `SFX: <id>` lines from a whitelist of 12 (birds, wind, rain, river, bell, crickets, footsteps, drum, flute, chime, splash, knock): 3–5 per part, at most 24 per chapter, never two in a row. TTS skips them; `sfxCues()` maps each to the line it precedes.
+  - **Validator fix:** banned words now match whole words with endings, so "hello", "skill", "switch" and "studied" no longer fail the old substring check.
+  - **Browser SFX (`apps/video/src/sfx.ts`):** every effect plus a 16 s looping evening ambience is synthesized with seeded Web Audio. No samples, no neurons; each takes milliseconds. `pitchClips` gives each cue 1.2 s of room (`SFX_GAP_SECONDS`).
+  - **New `BanyanVideo`:** dusk→night sky with stars and a rising moon; a swaying banyan with aerial roots; fireflies; grass; a temple whose bell swings. Ajja has glasses, beard, shawl, stick and a gesturing arm; the Kid bounces and waves on "?"/"!". Both blink and nod. Each effect has a visual (birds, rain, river, bell rings, footprints, dholak, music notes, sparkles, blowing leaves, a knocking door) and a comic sound-word bubble ("Ding dong!"). Also a title card, a big caption bubble with the spoken word lit, a pop-in "Today's lesson" card and a progress vine.
+  - **Studio:** a **Preview video** player (`@remotion/player`) per chapter, built by the same `prepareChapter` as Render; chapter stats show SFX count and words per line.
+  - **Real bug found:** `<Audio>` from `remotion` (Html5Audio) is rejected by `@remotion/web-renderer`, so every browser render would have failed. The composition now uses `@remotion/media`'s Audio.
+  - **Render verified headlessly:** an 8 s WebM (VP9 + Opus) rendered with voices, SFX and ambience, and the audio decodes back (5.7 MB/min at 1 Mbps → ~35 MB per 6-min chapter). H.264 can't be tested here because open-source Chromium has no H.264 encoder, so the System tab now checks `VideoEncoder.isConfigSupported` for the exact H.264 config.
+  - 48 tests pass; typecheck, build and dry-run are OK; Studio driven with Playwright, including Preview.
+  - A 43 s demo (`banyan-demo-scene.mp4`, silent voices) was sent to the owner.
+
+  **Every chapter scripted before this merges needs New script** (old prompt, long lines, no SFX, Luna). Remotion licensing: the free license covers individuals and companies of up to 3 people; the Player is passed `acknowledgeRemotionLicense`.
 ## 6. Deferred owner items (everything else is built)
 
 0. **Review + merge `fix/first-live-run`** — merging to `main` deploys. Re-render any chapter rendered before this change, so its `video_duration` gets recorded.

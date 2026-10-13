@@ -10,7 +10,9 @@ const outline = buildOutline(themeById("kindness")!, "village-story");
 const POOL = "the old banyan tree gives cool shade while kind children listen softly every evening".split(" ");
 function makeHalf(totalLines = 16, wordsPerLine = 20): string[] {
   const words = Array.from({ length: wordsPerLine }, (_, i) => POOL[i % POOL.length]).join(" ");
-  return Array.from({ length: totalLines }, (_, i) => `${i % 4 === 3 ? "KID" : "AJJA"}: ${words}.`);
+  const rows = Array.from({ length: totalLines }, (_, i) => `${i % 4 === 3 ? "KID" : "AJJA"}: ${words}.`);
+  rows.splice(5, 0, "SFX: birds"); // a sound cue, which is never spoken
+  return rows;
 }
 
 const resultFor = (lines: string[]) => ({ lines });
@@ -21,8 +23,11 @@ describe("generateChapter (two halves)", () => {
   it("writes two halves and prepends the intro on chapter 0", async () => {
     const ai: AiRunner = vi.fn(async () => resultFor(makeHalf()));
     const out = await generateChapter(ai, outline, 0, { maxAttempts: 2 });
-    expect(ai).toHaveBeenCalledTimes(2);
-    expect(out.attempts).toBe(2);
+    expect(ai).toHaveBeenCalledTimes(3);
+    expect(out.attempts).toBe(3);
+    // cues stay in the script but are not spoken lines
+    expect(out.spoken).toMatch(/^SFX: birds$/m);
+    expect(out.lines.every((l) => l.speaker === "AJJA" || l.speaker === "KID")).toBe(true);
     expect(out.words).toBeGreaterThanOrEqual(MIN_CHAPTER_WORDS);
     expect(out.words).toBeLessThanOrEqual(MAX_CHAPTER_WORDS);
     expect(out.spoken.split("\n")[0]).toMatch(/^AJJA: Namaste little friends/);
@@ -35,7 +40,10 @@ describe("generateChapter (two halves)", () => {
     const first = firstInput.messages.map((m) => m.content).join(" ");
     expect(first).toMatch(/Do not mention tomorrow/);
     expect(first).toMatch(/do not welcome or greet them again/);
-    expect(secondInput.messages.map((m) => m.content).join(" ")).toMatch(/LAST line, and only your last line/);
+    // middle part: no hook yet; only the last part ends on the "tomorrow" hook
+    expect(secondInput.messages.map((m) => m.content).join(" ")).toMatch(/Do not mention tomorrow/);
+    const lastInput = (ai as ReturnType<typeof vi.fn>).mock.calls[2][1] as { messages: { content: string }[] };
+    expect(lastInput.messages.map((m) => m.content).join(" ")).toMatch(/LAST line, and only your last line/);
   });
 
   it("appends the outro on the final chapter", async () => {
@@ -50,9 +58,10 @@ describe("generateChapter (two halves)", () => {
     const ai: AiRunner = vi.fn()
       .mockResolvedValueOnce(resultFor(bad))
       .mockResolvedValueOnce(resultFor(makeHalf()))
+      .mockResolvedValueOnce(resultFor(makeHalf()))
       .mockResolvedValueOnce(resultFor(makeHalf()));
     const out = await generateChapter(ai, outline, 3, { maxAttempts: 3 });
-    expect(out.attempts).toBe(3);
+    expect(out.attempts).toBe(4);
     const retryInput = (ai as ReturnType<typeof vi.fn>).mock.calls[1][1] as { messages: { content: string }[] };
     expect(retryInput.messages.map((m) => m.content).join(" ")).toMatch(/rejected/);
   });
@@ -65,7 +74,7 @@ describe("generateChapter (two halves)", () => {
       void input;
       return resultFor(short);
     };
-    await expect(generateChapter(ai, outline, 2, { maxAttempts: 3 })).rejects.toThrow(/chapter half failed after 3 attempts/);
+    await expect(generateChapter(ai, outline, 2, { maxAttempts: 3 })).rejects.toThrow(/chapter part 1 failed after 3 attempts/);
     expect(calls).toEqual([PRIMARY, PRIMARY, FALLBACK]);
   });
 
@@ -73,8 +82,9 @@ describe("generateChapter (two halves)", () => {
     const ai: AiRunner = vi.fn()
       .mockRejectedValueOnce(new Error("Workers AI 500 boom"))
       .mockResolvedValueOnce(resultFor(makeHalf()))
+      .mockResolvedValueOnce(resultFor(makeHalf()))
       .mockResolvedValueOnce(resultFor(makeHalf()));
     const out = await generateChapter(ai, outline, 4, { maxAttempts: 2 });
-    expect(out.attempts).toBe(3);
+    expect(out.attempts).toBe(4);
   });
 });

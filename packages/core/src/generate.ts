@@ -1,37 +1,56 @@
 import { type AiRunner, STORY_MODEL, STORY_MODEL_FALLBACK, extractAiText } from "./ai.ts";
 import { INTRO_LINE, OUTRO_LINE } from "./selection.ts";
-import { asciiPunct, splitDialogue, validateChapterBody } from "./story.ts";
+import { SFX_IDS, asciiPunct, parseDialogue, splitDialogue, validateChapterBody } from "./story.ts";
 import type { DialogueLine, EpisodeOutline } from "./types.ts";
 
-/** Target spoken length per ~7.5-min chapter (TTS + breath pauses land near 7 minutes). */
-export const MIN_CHAPTER_WORDS = 550;
-export const MAX_CHAPTER_WORDS = 800;
+/**
+ * ~6-minute chapters (owner's choice, 2026-10-13). Measured live: Aura-2 at Ajja 0.80x / Kid 1.25x
+ * runs about 0.43 s per word, so ~840 words ≈ 6 min ≈ 4,800 TTS chars ≈ 2 nights of voicing.
+ * One model call plateaus near 300 words, so a chapter is written in CHAPTER_PARTS parts.
+ */
+export const CHAPTER_PARTS = 3;
+export const PART_WORDS = 280;
+export const MIN_CHAPTER_WORDS = 720;
+export const MAX_CHAPTER_WORDS = 1050;
 
-const SYSTEM = `You are Ajja, a warm Indian grandfather telling bedtime-style stories under the old banyan tree to his curious eight-year-old grandchild. Your stories quietly teach good behaviour: honesty, kindness, duty, courage, respect, sharing, cleanliness, gratitude. You love old traditions and speak of elders and festivals with fondness, and you are equally kind to every person in the village no matter who they are. You never preach and never scold; the lesson blooms out of the story itself.
-Voice: gentle, unhurried, simple words a six-year-old understands. Short sentences. The Kid interrupts with innocent questions ("But Ajja, why...?", "What happened then?"), and you answer with patience and a smile in your voice. A little humour through the Kid's misunderstandings, never meanness.
-Output ONLY a JSON object: {"lines": string[]} where every string starts with "AJJA: " or "KID: ".
+const SYSTEM = `You are Ajja, a warm Indian grandfather telling bedtime stories under the old banyan tree to his curious six-year-old grandchild. Your stories quietly teach good behaviour: honesty, kindness, duty, courage, respect, sharing, cleanliness, gratitude. You love old traditions and speak of elders and festivals with fondness, and you are kind to every person in the village. You never preach and never scold; the lesson grows out of what happens.
+Make it SIMPLE and FUN for a five-to-eight-year-old:
+- Use everyday words a small child knows: mango, puppy, river, school bag, grandmother, rain, kite. No hard or fancy words.
+- Tell what people DO, SEE and HEAR. No abstract ideas and no poetic comparisons (never "honesty is a river" or "trust is sand").
+- Use sound words kids love to repeat: "whoosh", "tap-tap-tap", "ding-dong", "splish-splash", "moo".
+- Give the main characters simple names (Meena, Raju, Gopal the cow) and keep the same characters all the way through.
+- The Kid is playful: guesses, giggles, gets things a bit wrong in a funny way, and asks "What happened next, Ajja?".
+- Now and then Ajja asks the children watching a question ("What would YOU do?") and pauses with "Hmm?".
+- Repeat one small catchy phrase a few times in the chapter, like a little chorus.
+Output ONLY a JSON object: {"lines": string[]}. Every string is "AJJA: ...", "KID: ..." or a sound cue "SFX: <sound>".
 Rules:
-- Length is critical: write 14 to 20 lines and about 300 words. Count your lines before answering; anything under 12 lines will be rejected and you will have to redo it.
-- Ajja speaks most lines; the Kid speaks at least 3 lines. Never two Kid lines in a row.
-- HARD LIMIT: no single line may exceed 25 words; keep most lines under 20 words. If a thought is long, split it into two lines (Ajja, then the Kid reacting, then Ajja continuing).
-- Every line is one or two FULL sentences of 12 to 22 words — rich enough to paint a picture, simple enough for a six-year-old. Never a three-word line.
-- NEVER write digits. Spell out tiny counts if you must ("two mangoes"), better to avoid counts at all.
+- Length is critical: 18 to 26 spoken lines and about 280 words. Count your lines before answering; anything under 16 spoken lines will be rejected.
+- Every spoken line is ONE short sentence of 6 to 14 words. HARD LIMIT: never more than 18 words.
+- Ajja speaks most lines; the Kid speaks at least 5 lines. Never two Kid lines in a row.
+- Add 3 to 5 sound cues, each on its own line, placed just BEFORE the line it belongs to. Use ONLY these sounds: ${SFX_IDS.join(", ")}. Never two cues in a row.
+- NEVER write digits. Spell out tiny counts if you must ("two mangoes").
 - Never use frightening, violent or mean words. Nobody dies, nobody is hurt, no ghosts or monsters.
-- Stay inside this chapter's beat. Do not finish the whole story and do not reveal the final moral in words; let events hint at it.
+- Stay inside this chapter's beat. Do not finish the whole story and do not say the final moral in words; let events show it.
 - Do not mention chapters, episodes, YouTube, or that you are an AI.`;
 
-export function buildChapterMessages(outline: EpisodeOutline, chapterIndex: number, feedback?: string[], priorLines?: string[]) {
+export function buildChapterMessages(
+  outline: EpisodeOutline,
+  chapterIndex: number,
+  feedback?: string[],
+  priorLines?: string[],
+  part: { index: number; count: number } = { index: priorLines?.length ? CHAPTER_PARTS - 1 : 0, count: CHAPTER_PARTS },
+) {
   const ch = outline.chapters[chapterIndex];
   // Ajja's welcome line is prepended by code, so the model must not welcome the children again.
   const prev = chapterIndex > 0 ? `Previous chapter ended with: ${outline.chapters[chapterIndex - 1].beat}` : `This is the opening chapter. Ajja has ALREADY greeted the children (that line is added for you), so do not welcome or greet them again; go straight into the story.`;
-  const secondHalf = !!priorLines?.length;
-  // The hook belongs at the very end of the chapter only. Telling both halves to end on a
-  // hook produced two "tomorrow" promises mid-chapter (seen live in episode 1, chapter 1).
+  const lastPart = part.index === part.count - 1;
+  // The hook belongs at the very end of the chapter only. Telling every part to end on a
+  // hook produced several "tomorrow" promises mid-chapter (seen live in episode 1, chapter 1).
   const ending = chapterIndex === 7
-    ? (secondHalf
+    ? (lastPart
       ? `This is the closing chapter: gather everyone warmly and end with a soft bedtime farewell. Do NOT state the moral as a lesson sentence; show it in what happens.`
-      : `This is the closing chapter, but this is only its first half: do not say goodbye yet.`)
-    : (secondHalf
+      : `This is the closing chapter, but this is not its last part: do not say goodbye yet.`)
+    : (lastPart
       ? `Do not end the story. Your LAST line, and only your last line, is a small gentle hook from Ajja ("tomorrow I will tell you what..."). No line after it.`
       : `Do not mention tomorrow, bedtime or rest; the chapter continues after you.`);
   const lines = [
@@ -43,10 +62,10 @@ export function buildChapterMessages(outline: EpisodeOutline, chapterIndex: numb
   if (priorLines?.length) {
     const tail = priorLines.slice(-6).join("\n");
     lines.push(
-      `You have already written ${priorLines.length} lines of this chapter (about ${wordCount(priorLines.join(" "))} words). Continue the SAME scene with 14 to 20 MORE lines of about 300 words. Do not repeat any line. Stay in the same place with the same people. The last lines were:\n${tail}`,
+      `This is part ${part.index + 1} of ${part.count}. You have already written ${priorLines.length} lines of this chapter (about ${spokenWords(priorLines)} words). Continue the SAME scene with 18 to 26 MORE spoken lines (about ${PART_WORDS} words) and 3 to 5 sound cues. Do not repeat any line or retell what already happened; move the beat forward. The last lines were:\n${tail}`,
     );
   } else {
-    lines.push(`This is the FIRST half of the chapter: write 14 to 20 lines of about 300 words. End mid-scene; the second half will continue from you.`);
+    lines.push(`This is part 1 of ${part.count} of the chapter: write 18 to 26 spoken lines (about ${PART_WORDS} words) and 3 to 5 sound cues. End mid-scene; the next part will continue from you.`);
   }
   const messages = [{ role: "system", content: SYSTEM }, { role: "user", content: lines.join("\n") }];
   if (feedback?.length) messages.push({ role: "user", content: `Your previous answer was rejected: ${feedback.join("; ")}. Return corrected JSON only.` });
@@ -72,11 +91,16 @@ export function wordCount(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
 
+/** Words actually spoken (sound cues and speaker tags excluded). */
+export function spokenWords(rows: string[]): number {
+  return wordCount((parseDialogue(rows.join("\n")).filter(Boolean) as DialogueLine[]).map((l) => l.text).join(" "));
+}
+
 /**
- * Generate one chapter of dialogue in two halves, each with validator retries.
- * One big model call will not reliably produce 600 words, so we write ~300
- * words twice and join them. Mirrors chota generateScript: strict validator,
- * feedback-quoting retries, fallback model on the last attempt of each half.
+ * Generate one chapter of dialogue in CHAPTER_PARTS parts, each with validator retries.
+ * One big model call will not reliably produce 840 words, so we write ~280
+ * words per part, each continuing from the lines so far, and join them. Mirrors chota generateScript: strict validator,
+ * feedback-quoting retries, fallback model on the last attempt of each part.
  * Chapter 0 gets the fixed intro prepended by code; chapter 7 gets the fixed outro appended.
  */
 export async function generateChapter(
@@ -89,11 +113,12 @@ export async function generateChapter(
   const fallback = opts.fallbackModel ?? STORY_MODEL_FALLBACK;
   const max = opts.maxAttempts ?? 3;
   let attempts = 0;
-  const first = await generateHalf(ai, outline, chapterIndex, undefined, primary, fallback, max);
-  attempts += first.attempts;
-  const second = await generateHalf(ai, outline, chapterIndex, first.lines, primary, fallback, max);
-  attempts += second.attempts;
-  const raw = [...first.lines, ...second.lines];
+  const raw: string[] = [];
+  for (let index = 0; index < CHAPTER_PARTS; index++) {
+    const part = await generatePart(ai, outline, chapterIndex, raw.length ? [...raw] : undefined, { index, count: CHAPTER_PARTS }, primary, fallback, max);
+    attempts += part.attempts;
+    raw.push(...part.lines);
+  }
   const withFixed = [
     ...(chapterIndex === 0 ? [`AJJA: ${INTRO_LINE}`] : []),
     ...raw.map((l) => asciiPunct(l.trim())),
@@ -102,19 +127,20 @@ export async function generateChapter(
   const spoken = withFixed.join("\n");
   const problems = validateChapterBody(spoken);
   if (problems.length) throw new Error(`joined chapter failed validation: ${problems.slice(0, 4).join("; ")}`);
-  const words = wordCount(withFixed.map((l) => l.replace(/^(AJJA|KID):\s*/, "")).join(" "));
+  const words = spokenWords(withFixed);
   if (words < MIN_CHAPTER_WORDS || words > MAX_CHAPTER_WORDS) {
     throw new Error(`joined chapter is ${words} words, target ${MIN_CHAPTER_WORDS}-${MAX_CHAPTER_WORDS}`);
   }
   return { lines: splitDialogue(spoken), spoken, words, attempts };
 }
 
-/** One ~300-word half-chapter with validator retries. */
-async function generateHalf(
+/** One ~280-word part of a chapter with validator retries. */
+async function generatePart(
   ai: AiRunner,
   outline: EpisodeOutline,
   chapterIndex: number,
   priorLines: string[] | undefined,
+  part: { index: number; count: number },
   primary: string,
   fallback: string,
   max: number,
@@ -125,7 +151,7 @@ async function generateHalf(
     let raw: string[] | null = null;
     try {
       const res = await ai(model, {
-        messages: buildChapterMessages(outline, chapterIndex, feedback, priorLines),
+        messages: buildChapterMessages(outline, chapterIndex, feedback, priorLines, part),
         response_format: { type: "json_object" },
         // gpt-oss is a reasoning model: it spends tokens thinking before answering,
         // and with too little headroom it returns content:null (verified live: 4000 fails, 8000 works)
@@ -138,12 +164,13 @@ async function generateHalf(
       continue;
     }
     if (!raw) { feedback = ["answer was not a JSON object with a lines array"]; continue; }
-    if (raw.length < 12 || raw.length > 24) { feedback = [`half has ${raw.length} lines, need 14-20 (about 300 words)`]; continue; }
+    const spoken = parseDialogue(raw.join("\n")).length;
+    if (spoken < 16 || spoken > 30) { feedback = [`this part has ${spoken} spoken lines, need 18-26 short lines (about ${PART_WORDS} words)`]; continue; }
     const errs = validateChapterBody(raw.join("\n"));
     if (errs.length) { feedback = errs.slice(0, 4); continue; }
-    const words = wordCount(raw.map((l) => l.replace(/^(AJJA|KID):\s*/, "")).join(" "));
-    if (words < 200 || words > 450) { feedback = [`half is ${words} words, target 250-400 (add or trim whole AJJA/KID lines)`]; continue; }
+    const words = spokenWords(raw);
+    if (words < 200 || words > 400) { feedback = [`this part is ${words} words, target 240-340 (add or trim whole AJJA/KID lines)`]; continue; }
     return { lines: raw, attempts: attempt };
   }
-  throw new Error(`chapter half failed after ${max} attempts: ${feedback?.join("; ")}`);
+  throw new Error(`chapter part ${part.index + 1} failed after ${max} attempts: ${feedback?.join("; ")}`);
 }

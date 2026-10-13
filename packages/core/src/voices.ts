@@ -3,12 +3,12 @@ import type { ClipPart, DialogueLine } from "./types.ts";
 
 /** Deepgram Aura-2 English (same model chota.vc uses live). */
 export const TTS_MODEL = "@cf/deepgram/aura-2-en";
-/** Ajja's voice. Kid voice TBD by the owner's ear check (deferred); defaults to Luna pitched up in the browser. */
-export const AJJA_SPEAKER = "luna";
-export const KID_SPEAKER = "luna";
-/** Browser pitch shifts: Ajja down (warm elder), Kid up (young). Owner confirms by ear. */
-export const AJJA_PITCH = 0.9;
-export const KID_PITCH = 1.3;
+/** Owner's picks from the voice check (2026-10-13); the Studio Voice Lab overrides them per account. */
+export const AJJA_SPEAKER = "pluto";
+export const KID_SPEAKER = "iris";
+/** Browser pitch shifts: Ajja down (warm elder), Kid up (young). */
+export const AJJA_PITCH = 0.8;
+export const KID_PITCH = 1.25;
 
 export const TTS_BIT_RATE = 48000;
 export const TTS_SAMPLE_RATE = 24000;

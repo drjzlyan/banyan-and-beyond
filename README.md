@@ -1,6 +1,6 @@
 # Banyan and Beyond
 
-A faceless YouTube channel: **Ajja** (grandpa) tells gentle 1-hour story episodes for kids (6–12) under the old banyan tree — folk-tales, village stories and parables about honesty, kindness, duty, courage, respect, sharing, cleanliness and gratitude. A kid asks questions; Ajja answers with warmth. Right-rooted values, open-minded heart.
+A faceless YouTube channel: **Ajja** (grandpa) tells gentle ~48-minute story episodes (8 × ~6-min chapters) for kids (6–12), in simple words with sound effects and a lively animated banyan scene under the old banyan tree — folk-tales, village stories and parables about honesty, kindness, duty, courage, respect, sharing, cleanliness and gratitude. A kid asks questions; Ajja answers with warmth. Right-rooted values, open-minded heart.
 
 > **Resuming work? Read [`docs/PROGRESS.md`](docs/PROGRESS.md) first.**
 
@@ -23,7 +23,7 @@ A faceless YouTube channel: **Ajja** (grandpa) tells gentle 1-hour story episode
   Concat 8 MP4s in browser ─► YouTube resumable upload (browser PUTs bytes) ─► Worker sets title/desc/thumbnail
 ```
 
-1 hour ≈ 45k chars ≈ 123k TTS neurons vs 10k/day free → each episode assembles over **~10–14 nights (1 episode / 2 weeks)**. This is physics, not code.
+One ~6-min chapter ≈ 840 words ≈ 4,800 TTS chars ≈ 2 nights at the 3,000-char nightly budget (10k neurons/day free) → each episode assembles over **~16 nights**. Sound effects and ambience are synthesized in the browser at render time and cost no neurons.
 
 Everything runs on **Cloudflare's free tier** and is deployed **only by GitHub Actions**.
 

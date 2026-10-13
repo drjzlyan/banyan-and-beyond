@@ -27,7 +27,7 @@ describe("story validator", () => {
   });
   it("rejects digits, bad speakers, banned words", () => {
     expect(validateChapterBody("AJJA: I have 3 mangoes")).toContainEqual(expect.stringContaining("digits"));
-    expect(validateChapterBody("NARRATOR: hello")).toContainEqual(expect.stringContaining("AJJA: or KID:"));
+    expect(validateChapterBody("NARRATOR: hello")).toContainEqual(expect.stringContaining("must start with AJJA:, KID: or SFX:"));
     const bad = ["AJJA: Do not be afraid.", "KID: Was there a ghost?"].join("\n");
     expect(validateChapterBody(bad).join(" ")).toMatch(/forbidden/);
   });

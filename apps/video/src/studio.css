@@ -114,3 +114,4 @@ input[type="range"] { width: 100%; accent-color: var(--leaf); }
 .list button { width: 100%; background: none; border: 0; text-align: left; padding: 12px 4px; cursor: pointer; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .list button:hover { background: var(--bg); }
 details > summary { cursor: pointer; padding: 4px 0; }
+.script li.sfx { background: var(--bg); }

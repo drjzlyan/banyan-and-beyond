@@ -1,4 +1,4 @@
-/** Shared types for Banyan and Beyond: 1 hr story episodes in 8 chapters for kids (6-12). */
+/** Shared types for Banyan and Beyond: ~48-min story episodes in 8 chapters for kids (6-12). */
 
 export type Speaker = "AJJA" | "KID";
 

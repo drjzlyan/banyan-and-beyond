@@ -1,4 +1,4 @@
-import type { PreparedClip } from "@banyan/core";
+import { SFX_GAP_SECONDS, type PreparedClip, type SfxId } from "@banyan/core";
 
 export const FPS = 24;
 
@@ -35,7 +35,7 @@ export async function mouthEnvelope(clips: Clips, duration: number): Promise<num
 
 const GAP = 0.35;
 
-function wavBlob(buf: AudioBuffer): Blob {
+export function wavBlob(buf: AudioBuffer): Blob {
   const data = buf.getChannelData(0);
   const out = new DataView(new ArrayBuffer(44 + data.length * 2));
   const w = (o: number, str: string) => [...str].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
@@ -49,16 +49,26 @@ function wavBlob(buf: AudioBuffer): Blob {
 
 const pitchOf = (speaker: string, ajja: number, kid: number) => (speaker === "KID" ? kid : ajja);
 
+export interface TimedCue { id: SfxId; at: number }
+
 /**
  * Resample every clip by its speaker's pitch (Ajja down for warmth, Kid up for youth),
- * then rebuild the timeline so captions, mouth and video length stay in sync.
+ * then rebuild the timeline so captions, mouth and video length stay in sync. Each sound
+ * cue gets SFX_GAP_SECONDS of room before the line it belongs to (the sound tails under it).
  */
-export async function pitchClips(clips: Clips, ajjaPitch: number, kidPitch: number): Promise<{ clips: Clips; duration: number }> {
+export async function pitchClips(
+  clips: Clips, ajjaPitch: number, kidPitch: number, cues: { id: SfxId; before: number }[] = [],
+): Promise<{ clips: Clips; duration: number; cues: TimedCue[] }> {
   const ctx = new AudioContext();
   const out: Clips = [];
+  const timed: TimedCue[] = [];
   let cursor = 0;
+  const place = (i: number) => {
+    for (const c of cues) if (c.before === i) { timed.push({ id: c.id, at: cursor }); cursor += SFX_GAP_SECONDS; }
+  };
   try {
-    for (const clip of clips) {
+    for (const [i, clip] of clips.entries()) {
+      place(i);
       const rate = pitchOf(clip.speaker, ajjaPitch, kidPitch);
       const decoded = await ctx.decodeAudioData(await (await fetch(clip.url)).arrayBuffer());
       const length = Math.ceil(decoded.length / rate);
@@ -80,8 +90,10 @@ export async function pitchClips(clips: Clips, ajjaPitch: number, kidPitch: numb
       });
       cursor += duration + GAP;
     }
+    place(clips.length);
   } finally {
     await ctx.close();
   }
-  return { clips: out, duration: cursor - GAP };
+  const trailing = cues.some((c) => c.before >= clips.length);
+  return { clips: out, duration: trailing ? cursor : cursor - GAP, cues: timed };
 }
