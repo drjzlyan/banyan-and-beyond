@@ -12,8 +12,12 @@ export const ESTABLISH_SECONDS = 4;
 export const MIN_SHOT_SECONDS = 3.5;
 /** A sound cue may interrupt a shot sooner, so its picture is on screen. */
 export const MIN_SHOT_BEFORE_CUE = 2;
-/** Lines at least this long get a close-up on the speaker; shorter ones stay on the two-shot. */
-export const CLOSE_UP_MIN_LINE = 2.5;
+/**
+ * Lines at least this long get a close-up on the speaker; shorter ones stay on the two-shot. The
+ * Kid's lines are short questions played 1.25× faster, so her bar is lower or she'd almost never
+ * get a close-up (simulated on generator-shaped chapters: 3-5 % of screen time vs ~15 %).
+ */
+export const CLOSE_UP_MIN_LINE = { AJJA: 2.5, KID: 1.6 } as const;
 /** After this long on one shot, vary it on the next line. */
 export const MAX_SAME_SHOT = 12;
 /** The lesson card at the end sits on a wide shot. */
@@ -55,7 +59,7 @@ export function planShots(lines: Line[], cues: Cue[], duration: number): Shot[] 
     // a cue playing over this line keeps the wide shot so its picture stays visible
     const cueOver = cues.some((c) => c.at < line.end && c.at + c.seconds > line.start);
     const cur = shots[shots.length - 1]!;
-    let kind: ShotKind = cueOver ? "wide" : line.end - line.start >= CLOSE_UP_MIN_LINE ? close(line.speaker) : "two";
+    let kind: ShotKind = cueOver ? "wide" : line.end - line.start >= CLOSE_UP_MIN_LINE[line.speaker] ? close(line.speaker) : "two";
     if (kind === cur.kind && e.at - cur.at > MAX_SAME_SHOT) kind = isClose(kind) ? "two" : close(line.speaker);
     // never sit on the listener's close-up while the other one talks: change shot sooner
     const onListener = isClose(cur.kind) && cur.kind !== close(line.speaker);

@@ -64,6 +64,11 @@ describe("planShots", () => {
     expect(shots.map((s) => s.at)).toEqual([...shots.map((s) => s.at)].sort((a, b) => a - b));
   });
 
+  it("gives the Kid's short questions a close-up too", () => {
+    const ls = lines([["AJJA", 4], ["AJJA", 4], ["KID", 1.8], ["AJJA", 4]], 2);
+    expect(planShots(ls, [], 60).map((s) => s.kind)).toContain("kid");
+  });
+
   it("varies a long monologue instead of sitting on one close-up", () => {
     const ls = lines(Array.from({ length: 10 }, () => ["AJJA", 4] as [L["speaker"], number]));
     const shots = planShots(ls, [], 80);
