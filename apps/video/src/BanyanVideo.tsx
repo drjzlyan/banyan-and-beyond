@@ -1,7 +1,9 @@
 import type { PreparedClip, SfxId } from "@banyan/core";
 // @remotion/media's Audio: the browser renderer rejects remotion's Html5Audio ("<Html5Audio> is not supported")
 import { Audio } from "@remotion/media";
-import { AbsoluteFill, Sequence, interpolate, interpolateColors, random, spring, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, Sequence, interpolate, interpolateColors, random, spring, useCurrentFrame } from "remotion";
+import { ArtScene } from "./ArtScene.tsx";
+import { ART, hasStorybookArt } from "./art.ts";
 import { FPS } from "./audio.ts";
 
 export type VideoCue = { id: SfxId; at: number; url: string; seconds: number };
@@ -57,9 +59,17 @@ export function BanyanVideo(props: BanyanVideoProps) {
   const groundCol = interpolateColors(night, [0, 1], ["#7fae5a", "#2f4a33"]);
   const sway = (i: number, amp = 1) => Math.sin(time * 0.9 + i * 1.7) * (3 + wind * 14) * amp;
 
+  const storybook = hasStorybookArt();
+  const cueStart = (id: SfxId) => active.find((c) => c.id === id)?.at ?? 0;
+
   return (
     <AbsoluteFill style={{ background: skyBottom, fontFamily: "'Baloo 2', 'Comic Sans MS', 'Trebuchet MS', sans-serif", overflow: "hidden" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", inset: 0 }}>
+      {storybook && (
+        <ArtScene time={time} progress={progress} speaker={clip?.speaker ?? null} open={open}
+          excited={clip?.speaker === "KID" && /[?!]\s*$/.test(clip.text)} level={level} cueStart={cueStart} />
+      )}
+      {/* fallback scene drawn in code, used until the Inspyry art exists (see art/manifest.json) */}
+      {!storybook && <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", inset: 0 }}>
         <defs>
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={skyTop} />
@@ -122,7 +132,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
         <Leaves level={wind} time={time} />
         <Rain level={rain} time={time} />
         <Door level={level("knock")} time={time} />
-      </svg>
+      </svg>}
 
       {/* sound words, comic style */}
       {active.map((c, i) => (
@@ -155,6 +165,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", opacity: interpolate(time, [0, 0.4, 2.6, 3.2], [0, 1, 1, 0]) }}>
           <div style={{ background: "#fff7d6", border: "6px solid #3b2a17", borderRadius: 36, padding: "24px 56px", textAlign: "center", boxShadow: "10px 10px 0 #3b2a17",
             transform: `scale(${spring({ frame, fps: FPS, config: { damping: 11 } })})` }}>
+            {ART.logo && <Img src={ART.logo} style={{ width: 420, display: "block", margin: "0 auto 8px" }} />}
             <div style={{ fontSize: 34, color: "#8a5a2b", fontWeight: 700 }}>{props.episodeTitle ?? "Banyan and Beyond"}</div>
             <div style={{ fontSize: 76, color: "#2f6b3a", fontWeight: 800 }}>{props.chapterNo ? `Chapter ${props.chapterNo}` : props.title}</div>
           </div>

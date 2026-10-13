@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "art": "node scripts/generate-art.mjs"
   },
   "dependencies": {
     "@banyan/core": "workspace:*",
