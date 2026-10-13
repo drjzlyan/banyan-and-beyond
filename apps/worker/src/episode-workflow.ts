@@ -2,7 +2,7 @@ import { buildOutline, selectTheme } from "@banyan/core";
 import { themeById } from "@banyan/core";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { deletePrefix } from "./clips.ts";
-import type { Env, EpisodeParams } from "./env.ts";
+import type { Env, EpisodeParams, RechapterParams } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 
 const retry = (limit: number, delay: `${number} seconds`) => ({ retries: { limit, delay, backoff: "exponential" as const }, timeout: "2 minutes" as const });
@@ -39,11 +39,11 @@ export class EpisodeWorkflow extends WorkflowEntrypoint<Env, EpisodeParams> {
   }
 }
 
-/** Re-voice a single chapter (same dialogue engine as the outline; facts = outline beat). */
-export class RechapterWorkflow extends WorkflowEntrypoint<Env, { episodeId: string; chapter: number }> {
-  async run(event: WorkflowEvent<{ episodeId: string; chapter: number }>, step: WorkflowStep) {
+/** Re-make one chapter on the nightly cron: new script + voice, or (keepScript) the same script in the current voices. */
+export class RechapterWorkflow extends WorkflowEntrypoint<Env, RechapterParams> {
+  async run(event: WorkflowEvent<RechapterParams>, step: WorkflowStep) {
     const env = this.env;
-    const { episodeId, chapter } = event.payload;
+    const { episodeId, chapter, keepScript } = event.payload;
     // delete before resetting, so a cron run in between can never lose freshly voiced clips
     await step.do("delete old media", retry(2, "5 seconds"), async () => {
       await ensureSchema(env.DB);
@@ -56,11 +56,13 @@ export class RechapterWorkflow extends WorkflowEntrypoint<Env, { episodeId: stri
       const now = new Date().toISOString();
       // clear the script too, or voiceNext would re-read it, find every line voiced and finish instantly
       await env.DB.batch([
-        env.DB.prepare("UPDATE chapters SET status = 'chapter-pending', spoken = '', clips_json = '[]', duration = 0, video_key = NULL, video_duration = NULL, updated_at = ? WHERE episode_id = ? AND idx = ?").bind(now, episodeId, chapter),
+        keepScript
+          ? env.DB.prepare("UPDATE chapters SET status = 'chapter-pending', clips_json = '[]', duration = 0, video_key = NULL, video_duration = NULL, updated_at = ? WHERE episode_id = ? AND idx = ?").bind(now, episodeId, chapter)
+          : env.DB.prepare("UPDATE chapters SET status = 'chapter-pending', spoken = '', clips_json = '[]', duration = 0, video_key = NULL, video_duration = NULL, updated_at = ? WHERE episode_id = ? AND idx = ?").bind(now, episodeId, chapter),
         // also drops any approval: the episode must be re-rendered and re-approved
         env.DB.prepare("UPDATE episodes SET status = 'chapter-pending', updated_at = ? WHERE id = ?").bind(now, episodeId),
       ]);
     });
-    return { episodeId, chapter };
+    return { episodeId, chapter, keepScript: !!keepScript };
   }
 }

@@ -111,3 +111,47 @@ export function splitNightlyShare(lines: DialogueLine[]): { tonight: DialogueLin
   if (cut === 0 && lines.length) cut = 1;
   return { tonight: lines.slice(0, cut), later: lines.slice(cut) };
 }
+
+/** Every Aura-2 English speaker Workers AI accepts (Cloudflare model docs, 2026-10). */
+export const AURA2_VOICES = [
+  "amalthea", "andromeda", "apollo", "arcas", "aries", "asteria", "athena", "atlas", "aurora", "callista",
+  "cora", "cordelia", "delia", "draco", "electra", "harmonia", "helena", "hera", "hermes", "hyperion",
+  "iris", "janus", "juno", "jupiter", "luna", "mars", "minerva", "neptune", "odysseus", "ophelia",
+  "orion", "orpheus", "pandora", "phoebe", "pluto", "saturn", "thalia", "theia", "vesta", "zeus",
+] as const;
+
+/** Voices the owner picks in the Studio Voice Lab; stored in D1, read by the nightly voicer and the renderer. */
+export interface VoiceSettings {
+  ajjaVoice: string;
+  kidVoice: string;
+  /** browser resample rate: below 1 is deeper and slower, above 1 is higher and faster */
+  ajjaPitch: number;
+  kidPitch: number;
+}
+
+export const DEFAULT_VOICE_SETTINGS: VoiceSettings = { ajjaVoice: AJJA_SPEAKER, kidVoice: KID_SPEAKER, ajjaPitch: AJJA_PITCH, kidPitch: KID_PITCH };
+
+export const PITCH_MIN = 0.7;
+export const PITCH_MAX = 1.5;
+
+/** Validate a settings update; unknown voices or out-of-range pitches are rejected, missing fields keep the current value. */
+export function mergeVoiceSettings(current: VoiceSettings, patch: Partial<Record<keyof VoiceSettings, unknown>>): { settings: VoiceSettings; errors: string[] } {
+  const errors: string[] = [];
+  const next = { ...current };
+  for (const k of ["ajjaVoice", "kidVoice"] as const) {
+    const v = patch[k];
+    if (v === undefined) continue;
+    if (typeof v !== "string" || !(AURA2_VOICES as readonly string[]).includes(v)) errors.push(`${k} must be one of the Aura-2 voices`);
+    else next[k] = v;
+  }
+  for (const k of ["ajjaPitch", "kidPitch"] as const) {
+    const v = patch[k];
+    if (v === undefined) continue;
+    if (typeof v !== "number" || !Number.isFinite(v) || v < PITCH_MIN || v > PITCH_MAX) errors.push(`${k} must be between ${PITCH_MIN} and ${PITCH_MAX}`);
+    else next[k] = Math.round(v * 100) / 100;
+  }
+  return { settings: next, errors };
+}
+
+/** Which Aura voice speaks a line under the given settings. */
+export const voiceFor = (speaker: DialogueLine["speaker"], s: VoiceSettings) => (speaker === "KID" ? s.kidVoice : s.ajjaVoice);

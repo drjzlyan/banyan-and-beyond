@@ -8,10 +8,11 @@ import {
   splitDialogue,
   splitNightlyShare,
   themeById,
+  voiceFor,
   type AiRunner,
   type EpisodeOutline,
 } from "@banyan/core";
-import { speakLine, type StoredLineClip } from "./clips.ts";
+import { getVoiceSettings, speakLine, type StoredLineClip } from "./clips.ts";
 import type { Env } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 
@@ -72,13 +73,14 @@ export async function voiceNext(env: Env): Promise<string> {
   const voiced = JSON.parse(ch.clips_json || "[]") as StoredLineClip[];
   const remaining = lines.slice(voiced.length).map((l) => ({ speaker: l.speaker, text: l.text }));
   const { tonight } = splitNightlyShare(remaining);
+  const voices = await getVoiceSettings(env);
   const fresh: StoredLineClip[] = [];
   try {
     for (const [i, l] of tonight.entries()) {
       const n = voiced.length + i;
       // text hash in the key: a re-scripted line never collides with a cached old clip
-      const key = `episodes/${pending.episodeId}/ch-${pending.idx}-line-${n}-${shortHash(`${l.speaker}:${l.text}`)}.mp3`;
-      fresh.push(await speakLine(env, key, l.speaker, l.text));
+      const key = `episodes/${pending.episodeId}/ch-${pending.idx}-line-${n}-${shortHash(`${voiceFor(l.speaker, voices)}:${l.text}`)}.mp3`;
+      fresh.push(await speakLine(env, key, l.speaker, l.text, voiceFor(l.speaker, voices)));
     }
   } catch (e) {
     // save whatever got voiced, then pause (neurons) or fail loudly (real error)
@@ -106,7 +108,7 @@ export async function voiceNext(env: Env): Promise<string> {
 }
 
 function timed(clips: { start: number; end: number; words: { text: string; start: number; end: number }[] }[], parts: StoredLineClip[]) {
-  return clips.map((c, i) => ({ index: i, duration: c.end - c.start, ...c, speaker: parts[i].speaker, text: parts[i].text, url: parts[i].url }));
+  return clips.map((c, i) => ({ index: i, duration: c.end - c.start, ...c, speaker: parts[i].speaker, text: parts[i].text, url: parts[i].url, voice: parts[i].voice }));
 }
 
 /** Create a fresh episode outline + 8 pending chapters. Used by the cron when idle and by /api/run. */

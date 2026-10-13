@@ -30,6 +30,12 @@ describe("generateChapter (two halves)", () => {
     // the second half sees the first half's lines
     const secondInput = (ai as ReturnType<typeof vi.fn>).mock.calls[1][1] as { messages: { content: string }[] };
     expect(secondInput.messages.map((m) => m.content).join(" ")).toMatch(/Continue the SAME scene/);
+    // only the second half may end on the "tomorrow" hook; the first must not greet again
+    const firstInput = (ai as ReturnType<typeof vi.fn>).mock.calls[0][1] as { messages: { content: string }[] };
+    const first = firstInput.messages.map((m) => m.content).join(" ");
+    expect(first).toMatch(/Do not mention tomorrow/);
+    expect(first).toMatch(/do not welcome or greet them again/);
+    expect(secondInput.messages.map((m) => m.content).join(" ")).toMatch(/LAST line, and only your last line/);
   });
 
   it("appends the outro on the final chapter", async () => {

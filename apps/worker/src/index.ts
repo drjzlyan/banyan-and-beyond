@@ -1,7 +1,8 @@
-import { MAX_CHAPTER_VIDEO_BYTES, chapterStamps, checkStatusChange, contentRange, isChapterVoiced, youtubeDescription, youtubeTitle } from "@banyan/core";
+import { AURA2_VOICES, MAX_CHAPTER_VIDEO_BYTES, NIGHTLY_TTS_CHAR_BUDGET, chapterStamps, mergeVoiceSettings, checkStatusChange, contentRange, isChapterVoiced, youtubeDescription, youtubeTitle } from "@banyan/core";
 import type { Env } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 import { EpisodeWorkflow, RechapterWorkflow } from "./episode-workflow.ts";
+import { getVoiceSettings, saveVoiceSettings, tts } from "./clips.ts";
 import { createOutline, voiceNext } from "./voice-chapter.ts";
 import { finalizeUploads, mintAccessToken } from "./youtube.ts";
 
@@ -28,7 +29,41 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
   await ensureSchema(env.DB);
   const now = () => new Date().toISOString();
 
-  if (url.pathname === "/api/me") return json({ ok: true });
+  if (url.pathname === "/api/me") {
+    // what the Studio's System panel shows: is each piece configured, and what will the crons do
+    return json({
+      ok: true,
+      youtube: !!(env.YT_CLIENT_ID && env.YT_CLIENT_SECRET && env.YT_REFRESH_TOKEN),
+      publicBase: env.PUBLIC_BASE,
+      crons: { voice: "0 22 * * *", finalize: "*/10 * * * *" },
+      nightlyCharBudget: NIGHTLY_TTS_CHAR_BUDGET,
+    });
+  }
+
+  if (url.pathname === "/api/settings") {
+    if (req.method === "GET") return json({ voices: await getVoiceSettings(env), catalog: AURA2_VOICES });
+    if (req.method === "PUT") {
+      const body = (await req.json().catch(() => ({}))) as { voices?: Record<string, unknown> };
+      const { settings, errors } = mergeVoiceSettings(await getVoiceSettings(env), body.voices ?? {});
+      if (errors.length) return json({ error: errors.join("; ") }, 400);
+      await saveVoiceSettings(env, settings);
+      return json({ voices: settings });
+    }
+  }
+
+  // Voice Lab: speak one short sample in any Aura voice (not stored). ~300 chars ≈ 800 neurons, so keep samples short.
+  if (url.pathname === "/api/voice-preview" && req.method === "POST") {
+    const { voice, text } = (await req.json().catch(() => ({}))) as { voice?: string; text?: string };
+    if (!voice || !(AURA2_VOICES as readonly string[]).includes(voice)) return json({ error: "unknown voice" }, 400);
+    const sample = (text ?? "").trim();
+    if (!sample || sample.length > 300) return json({ error: "sample text must be 1-300 characters" }, 400);
+    try {
+      return new Response(await tts(env, voice, sample), { headers: { "content-type": "audio/mpeg", "cache-control": "no-store" } });
+    } catch (e) {
+      const msg = (e as Error).message;
+      return json({ error: /3036|neuron/i.test(msg) ? "today's free Workers AI neurons are used up; try after 00:00 UTC" : msg.slice(0, 200) }, 502);
+    }
+  }
 
   if (url.pathname === "/api/episodes" && req.method === "GET") {
     const q = await env.DB.prepare("SELECT id, title, theme_id, kind, status, created_at FROM episodes ORDER BY created_at DESC LIMIT 50").all();
@@ -104,15 +139,15 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
     }
   }
 
-  // re-script + re-voice one chapter (runs on the nightly cron; the old render is dropped when it lands)
-  const r = url.pathname.match(/^\/api\/episodes\/([\w-]+)\/chapters\/(\d+)\/regenerate$/);
+  // re-script + re-voice (regenerate) or re-voice only (revoice) one chapter; the nightly cron does the work
+  const r = url.pathname.match(/^\/api\/episodes\/([\w-]+)\/chapters\/(\d+)\/(regenerate|revoice)$/);
   if (r && req.method === "POST") {
-    const [, id, idx] = r;
+    const [, id, idx, how] = r;
     const row = await env.DB.prepare("SELECT status FROM chapters WHERE episode_id = ? AND idx = ?").bind(id, Number(idx)).first<{ status: string }>();
     if (!row) return json({ error: "not found" }, 404);
     const ep = await env.DB.prepare("SELECT status FROM episodes WHERE id = ?").bind(id).first<{ status: string }>();
     if (ep && locked(ep.status)) return json({ error: `episode is ${ep.status}; it can no longer change` }, 409);
-    await env.RECHAPTER_WORKFLOW.create({ id: newId(), params: { episodeId: id, chapter: Number(idx) } });
+    await env.RECHAPTER_WORKFLOW.create({ id: newId(), params: { episodeId: id, chapter: Number(idx), keepScript: how === "revoice" } });
     return json({ ok: true });
   }
 

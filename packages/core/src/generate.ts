@@ -22,14 +22,23 @@ Rules:
 
 export function buildChapterMessages(outline: EpisodeOutline, chapterIndex: number, feedback?: string[], priorLines?: string[]) {
   const ch = outline.chapters[chapterIndex];
-  const prev = chapterIndex > 0 ? `Previous chapter ended with: ${outline.chapters[chapterIndex - 1].beat}` : `This is the opening chapter: begin with warmth and welcome.`;
+  // Ajja's welcome line is prepended by code, so the model must not welcome the children again.
+  const prev = chapterIndex > 0 ? `Previous chapter ended with: ${outline.chapters[chapterIndex - 1].beat}` : `This is the opening chapter. Ajja has ALREADY greeted the children (that line is added for you), so do not welcome or greet them again; go straight into the story.`;
+  const secondHalf = !!priorLines?.length;
+  // The hook belongs at the very end of the chapter only. Telling both halves to end on a
+  // hook produced two "tomorrow" promises mid-chapter (seen live in episode 1, chapter 1).
+  const ending = chapterIndex === 7
+    ? (secondHalf
+      ? `This is the closing chapter: gather everyone warmly and end with a soft bedtime farewell. Do NOT state the moral as a lesson sentence; show it in what happens.`
+      : `This is the closing chapter, but this is only its first half: do not say goodbye yet.`)
+    : (secondHalf
+      ? `Do not end the story. Your LAST line, and only your last line, is a small gentle hook from Ajja ("tomorrow I will tell you what..."). No line after it.`
+      : `Do not mention tomorrow, bedtime or rest; the chapter continues after you.`);
   const lines = [
     `Story: "${outline.title}" (${outline.kind}). Theme: ${outline.theme.valueWord} — ${outline.theme.moral}`,
     `Chapter ${chapterIndex + 1} of 8. This chapter's beat: ${ch.beat}`,
     prev,
-    chapterIndex === 7
-      ? `This is the closing chapter: gather everyone warmly and end with a soft bedtime farewell. Do NOT state the moral as a lesson sentence; show it in what happens.`
-      : `Do not end the story in this chapter; close with a small gentle hook ("tomorrow I will tell you what...").`,
+    ending,
   ];
   if (priorLines?.length) {
     const tail = priorLines.slice(-6).join("\n");

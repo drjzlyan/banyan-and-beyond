@@ -3,12 +3,19 @@ export interface EpisodeParams {
   theme?: string;
 }
 
+/** keepScript: re-voice only (e.g. after picking new voices); otherwise re-script and re-voice */
+export interface RechapterParams {
+  episodeId: string;
+  chapter: number;
+  keepScript?: boolean;
+}
+
 export interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
   AI: Ai;
   EPISODE_WORKFLOW: Workflow<EpisodeParams>;
-  RECHAPTER_WORKFLOW: Workflow<{ episodeId: string; chapter: number }>;
+  RECHAPTER_WORKFLOW: Workflow<RechapterParams>;
   CF_ACCOUNT_ID: string;
   PUBLIC_BASE: string;
   /** secrets, set from GitHub Actions on deploy */
