@@ -105,3 +105,20 @@ export function parseVideoState(body: unknown): string {
   if (item.status?.uploadStatus === "failed") return "failed";
   return item.processingDetails?.processingStatus ?? item.status?.uploadStatus ?? "unknown";
 }
+
+/**
+ * What the finalize cron should do with a videos.list response.
+ * processingStatus: processing | succeeded | failed | terminated;
+ * uploadStatus: uploaded | processed | failed | rejected | deleted.
+ * "uploaded" only means YouTube has the bytes; it still has to process them, so keep waiting.
+ */
+export function videoOutcome(body: unknown): { outcome: "posted" | "failed" | "waiting"; state: string } {
+  const item = (body as { items?: { status?: { uploadStatus?: string }; processingDetails?: { processingStatus?: string } }[] })?.items?.[0];
+  if (!item) return { outcome: "failed", state: "missing" };
+  const upload = item.status?.uploadStatus ?? "";
+  const processing = item.processingDetails?.processingStatus ?? "";
+  if (["failed", "rejected", "deleted"].includes(upload)) return { outcome: "failed", state: upload };
+  if (["failed", "terminated"].includes(processing)) return { outcome: "failed", state: `processing ${processing}` };
+  if (upload === "processed" || processing === "succeeded") return { outcome: "posted", state: upload || processing };
+  return { outcome: "waiting", state: processing || upload || "unknown" };
+}

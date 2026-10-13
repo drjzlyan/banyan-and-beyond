@@ -1,4 +1,4 @@
-import { parseVideoState, tokenRefreshRequest, videoStatusRequest } from "@banyan/core";
+import { tokenRefreshRequest, videoOutcome, videoStatusRequest } from "@banyan/core";
 import type { Env } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 
@@ -36,16 +36,18 @@ export async function finalizeUploads(env: Env): Promise<string> {
     try {
       const req = videoStatusRequest(access, r.yt_video_id);
       const res = await fetch(req.url, req.init);
-      const state = parseVideoState(await res.json().catch(() => null));
+      // a 401/5xx has no items and would read as "missing": treat it as a poll error, retry in 10 minutes
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { outcome, state } = videoOutcome(await res.json().catch(() => null));
       const now = new Date().toISOString();
-      if (state === "processed" || state === "uploaded") {
+      if (outcome === "posted") {
         await env.DB.batch([
           env.DB.prepare("UPDATE yt_uploads SET status = 'posted', error = NULL, updated_at = ? WHERE episode_id = ?").bind(now, r.episode_id),
           env.DB.prepare("UPDATE episodes SET status = 'posted', updated_at = ? WHERE id = ?").bind(now, r.episode_id),
         ]);
         const freed = await freeChapterVideos(env, r.episode_id);
         out.push(`${r.episode_id}: posted (freed ${freed} chapter videos)`);
-      } else if (state === "failed" || state === "missing") {
+      } else if (outcome === "failed") {
         await env.DB.batch([
           env.DB.prepare("UPDATE yt_uploads SET status = 'failed', error = ?, updated_at = ? WHERE episode_id = ?").bind(`YouTube reported ${state}`, now, r.episode_id),
           env.DB.prepare("UPDATE episodes SET status = 'approved', updated_at = ? WHERE id = ?").bind(now, r.episode_id),

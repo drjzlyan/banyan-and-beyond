@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseUploadResponse,
   parseVideoState,
+  videoOutcome,
   resumableInitRequest,
   setThumbnailRequest,
   tokenRefreshRequest,
@@ -42,5 +43,25 @@ describe("youtube-upload builders", () => {
     expect(parseVideoState({ items: [{ status: { uploadStatus: "uploaded" }, processingDetails: { processingStatus: "processing" } }] })).toBe("processing");
     expect(parseVideoState({ items: [{ status: { uploadStatus: "failed" } }] })).toBe("failed");
     expect(parseVideoState({ items: [] })).toBe("missing");
+  });
+});
+
+describe("videoOutcome", () => {
+  const item = (uploadStatus: string, processingStatus?: string) => ({ items: [{ status: { uploadStatus }, ...(processingStatus ? { processingDetails: { processingStatus } } : {}) }] });
+  it("posts only once YouTube finished processing", () => {
+    expect(videoOutcome(item("processed", "succeeded")).outcome).toBe("posted");
+    expect(videoOutcome(item("uploaded", "succeeded")).outcome).toBe("posted");
+    expect(videoOutcome(item("processed")).outcome).toBe("posted");
+  });
+  it("keeps waiting while bytes are in but processing is not done", () => {
+    expect(videoOutcome(item("uploaded", "processing")).outcome).toBe("waiting");
+    expect(videoOutcome(item("uploaded")).outcome).toBe("waiting");
+  });
+  it("fails on rejected, deleted, terminated or a vanished video", () => {
+    expect(videoOutcome(item("rejected")).outcome).toBe("failed");
+    expect(videoOutcome(item("deleted")).outcome).toBe("failed");
+    expect(videoOutcome(item("uploaded", "terminated")).outcome).toBe("failed");
+    expect(videoOutcome(item("uploaded", "failed")).outcome).toBe("failed");
+    expect(videoOutcome({ items: [] })).toEqual({ outcome: "failed", state: "missing" });
   });
 });

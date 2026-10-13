@@ -78,6 +78,8 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
   const reload = useCallback(async () => {
     const d = await api<EpisodeDetail>(`/api/episodes/${id}`);
     setDetail(d);
+    // an upload session (and its token) is only valid while the episode stays approved
+    if (d.status !== "approved") setYt(null);
     return d;
   }, [id]);
 
@@ -175,6 +177,7 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
 
   async function publish() {
     if (!yt) return;
+    if ((await reload()).status !== "approved") { say("err", "The episode is no longer approved; approve it again before publishing."); return; }
     if (!window.confirm("Assemble the 8 chapters and upload to YouTube as unlisted? This takes a while — keep this tab in the foreground.")) return;
     try {
       setPubPhase("assembling");
@@ -228,7 +231,7 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
           <p><b>{yt.title}</b></p>
           <pre style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{yt.description}</pre>
           <p>{yt.parts.length} chapters ready · thumbnail {yt.thumbnailUrl ? "ready" : "missing — render it above first"}</p>
-          <button onClick={() => void publish()} disabled={!!pubPhase} style={{ padding: "12px 18px" }}>
+          <button onClick={() => void publish()} disabled={!!pubPhase || detail.status !== "approved"} style={{ padding: "12px 18px" }}>
             {pubPhase ? `${pubPhase} ${Math.round(pubPct * 100)}%` : "Assemble + upload to YouTube (unlisted)"}
           </button>
         </div>
