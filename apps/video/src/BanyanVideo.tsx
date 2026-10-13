@@ -196,19 +196,29 @@ export function BanyanVideo(props: BanyanVideoProps) {
         const bump = hits.words.reduce((m, at) => Math.max(m, t >= at && t < at + 0.22 ? 1 - (t - at) / 0.22 : 0), 0);
         const land = t >= hits.final ? Math.max(0, 1 - (t - hits.final) / 0.5) : 0;
         const first = role === "first";
+        // the logo arrives alone and bounces on the name-notes; on the landing it lifts and the title ribbon pops in under it
+        const ribbonAt = first ? hits.final : hits.words[2]!;
+        const ribbon = pop(ribbonAt, 9);
+        const lift = interpolate(ribbon, [0, 1], [0, first ? -70 : -55]);
         return (
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", opacity: fadeOut }}>
-            <div style={{ background: "#fff7d6", border: "6px solid #3b2a17", borderRadius: 36, padding: first ? "24px 56px" : "18px 48px", textAlign: "center", boxShadow: "10px 10px 0 #3b2a17",
-              transform: `scale(${pop(hits.words[0]! - 0.15, 11) * (1 + bump * 0.035 + land * 0.08)}) rotate(${-1.5 + bump * 1.5}deg)` }}>
-              {ART.logo && <Img src={ART.logo} style={{ width: first ? 420 : 300, display: "block", margin: "0 auto 8px" }} />}
-              {first && <div style={{ fontSize: 34, color: "#8a5a2b", fontWeight: 700, opacity: pop(hits.words[4]! + 0.4), transform: `translateY(${(1 - pop(hits.words[4]! + 0.4)) * 20}px)` }}>{props.episodeTitle ?? "Banyan and Beyond"}</div>}
-              <div style={{ fontSize: first ? 76 : 64, color: "#2f6b3a", fontWeight: 800, transform: `scale(${first ? pop(hits.final, 8) : pop(hits.words[2]!, 9)})` }}>{props.chapterNo ? `Chapter ${props.chapterNo}` : props.title}</div>
+            <div style={{ position: "absolute", left: "50%", top: "50%", width: first ? 560 : 440,
+              transform: `translate(-50%, -50%) translateY(${lift}px) scale(${pop(hits.words[0]! - 0.15, 11) * (1 + bump * 0.05 + land * 0.08)}) rotate(${-2 + bump * 2}deg)`,
+              background: "#fff7d6", border: "6px solid #3b2a17", borderRadius: 36, padding: first ? "26px 40px" : "18px 32px", boxShadow: "10px 10px 0 #3b2a17" }}>
+              {ART.logo && <Img src={ART.logo} style={{ width: "100%", display: "block" }} />}
             </div>
+            {ribbon > 0.01 && (
+              <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, ${first ? 110 : 85}px) scale(${ribbon})`,
+                background: "#2f6b3a", border: "5px solid #3b2a17", borderRadius: 24, padding: "8px 34px 12px", textAlign: "center", boxShadow: "8px 8px 0 #3b2a17", whiteSpace: "nowrap" }}>
+                {first && <div style={{ fontSize: 28, color: "#fff4c2", fontWeight: 700 }}>{props.episodeTitle ?? "Banyan and Beyond"}</div>}
+                <div style={{ fontSize: first ? 60 : 54, color: "#ffffff", fontWeight: 800, lineHeight: 1.1 }}>{props.chapterNo ? `Chapter ${props.chapterNo}` : props.title}</div>
+              </div>
+            )}
             {/* star burst on the landing note */}
             {land > 0 && <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", inset: 0 }}>
               {Array.from({ length: 14 }).map((_, i) => {
-                const a = (i / 14) * Math.PI * 2, r = 230 + (1 - land) * 260;
-                return <text key={i} x={W / 2 + Math.cos(a) * r * 1.5} y={H / 2 + Math.sin(a) * r * 0.75} fontSize={34} textAnchor="middle" fill={["#f2c14e", "#e4572e", "#5b8e55"][i % 3]} opacity={land}>★</text>;
+                const a = (i / 14) * Math.PI * 2, r = 200 + (1 - land) * 300;
+                return <text key={i} x={W / 2 + Math.cos(a) * r * 1.5} y={H / 2 + Math.sin(a) * r * 0.75} fontSize={48} stroke="#3b2a17" strokeWidth={2} textAnchor="middle" fill={["#f2c14e", "#e4572e", "#5b8e55"][i % 3]} opacity={land}>★</text>;
               })}
             </svg>}
           </div>
