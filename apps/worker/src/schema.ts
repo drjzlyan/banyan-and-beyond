@@ -1,5 +1,9 @@
 /** SQLite has no "ADD COLUMN IF NOT EXISTS", so these run one by one and a duplicate-column error means "already done". */
-const ALTERS = [`ALTER TABLE episodes ADD COLUMN thumbnail_key TEXT`];
+const ALTERS = [
+  `ALTER TABLE episodes ADD COLUMN thumbnail_key TEXT`,
+  // seconds of the rendered chapter MP4 (pitch shift makes it differ from the voiced length)
+  `ALTER TABLE chapters ADD COLUMN video_duration REAL`,
+];
 
 /** Created lazily so there is no separate migration step in CI. Statements are idempotent. */
 const STATEMENTS = [

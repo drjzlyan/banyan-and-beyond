@@ -1,4 +1,4 @@
-import { AJJA_PITCH, KID_PITCH, type PreparedClip } from "@banyan/core";
+import { AJJA_PITCH, CHAPTER_VIDEO_BITRATE, KID_PITCH, MAX_CHAPTER_VIDEO_BYTES, isChapterVoiced, type PreparedClip } from "@banyan/core";
 import { renderMediaOnWeb, renderStillOnWeb } from "@remotion/web-renderer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BanyanVideo } from "./BanyanVideo.tsx";
@@ -86,8 +86,8 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
   const themeColor = useMemo(() => THEME_COLORS[detail?.outline.theme.id ?? ""] ?? "#ffe9c4", [detail]);
   const moral = detail?.outline.theme.moral ?? "";
 
+  // always refetch: a regenerated chapter must never render from a stale script
   async function loadChapter(n: number) {
-    if (full[n]) return full[n];
     const rows = await api<ChapterRow[]>(`/api/episodes/${id}/chapters`);
     const map: Record<number, ChapterRow> = {};
     for (const r of rows) map[r.idx] = r;
@@ -102,7 +102,7 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
     try {
       const row = await loadChapter(n);
       const stored = JSON.parse(row.clips_json || "[]") as PreparedClip[];
-      if (!stored.length) { say("err", `Chapter ${n + 1} has no voiced clips yet — the nightly cron is still working.`); setPhase((p) => ({ ...p, [n]: "" })); return; }
+      if (!isChapterVoiced(row.status) || !stored.length) { say("err", `Chapter ${n + 1} is not fully voiced yet — the nightly cron is still working.`); setPhase((p) => ({ ...p, [n]: "" })); return; }
       const pitched = await pitchClips(stored, AJJA_PITCH, KID_PITCH);
       const mouth = await mouthEnvelope(pitched.clips, pitched.duration);
       const props = { title: row.title, themeColor, moral, clips: pitched.clips, duration: pitched.duration, mouth };
@@ -113,15 +113,17 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
         composition: { id: "banyan-ch", component: BanyanVideo, durationInFrames: frames, fps: FPS, width: 1280, height: 720, defaultProps: props },
         inputProps: props,
         container: "mp4", videoCodec: "h264", audioCodec: "aac",
-        videoBitrate: "high",
+        videoBitrate: CHAPTER_VIDEO_BITRATE,
         onProgress: ({ progress: p }) => {
           setPct((x) => ({ ...x, [n]: p }));
           void started;
         },
       });
       const blob = await getBlob();
+      if (blob.size > MAX_CHAPTER_VIDEO_BYTES) throw new Error(`video is ${(blob.size / 1e6).toFixed(0)} MB; the free plan accepts under ${MAX_CHAPTER_VIDEO_BYTES / 1e6} MB per upload`);
       setPhase((p) => ({ ...p, [n]: "uploading" }));
-      await putFile(`/api/episodes/${id}/chapters/${n}/video`, blob, "video/mp4", (f) => setPct((x) => ({ ...x, [n]: f })));
+      // the real rendered length (pitch shift + tail) drives the YouTube chapter timestamps
+      await putFile(`/api/episodes/${id}/chapters/${n}/video`, blob, "video/mp4", (f) => setPct((x) => ({ ...x, [n]: f })), { "x-video-duration": (frames / FPS).toFixed(2) });
       await reload();
       say("ok", `Chapter ${n + 1} rendered (${(blob.size / 1e6).toFixed(1)} MB) and uploaded.`);
       setPhase((p) => ({ ...p, [n]: "" }));
@@ -155,9 +157,11 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
   }
 
   async function regen(n: number) {
-    if (!window.confirm(`Re-script and re-voice chapter ${n + 1}? Its render will be dropped when the new audio lands.`)) return;
+    if (!window.confirm(`Re-script and re-voice chapter ${n + 1}? Its script, voice and video are deleted now, and the episode needs approving again.`)) return;
     try {
       await api(`/api/episodes/${id}/chapters/${n}/regenerate`, { method: "POST" });
+      setFull({});
+      await reload();
       say("ok", `Chapter ${n + 1} will be re-made on the nightly cron.`);
     } catch (e) { say("err", e instanceof ApiError ? e.message : String(e)); }
   }
@@ -202,7 +206,7 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
             {c.duration > 0 && ` (${Math.round(c.duration)}s)`}
             {c.video_key && " · video ✓"}
             <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-              <button onClick={() => void renderChapter(c.idx)} disabled={!!phase[c.idx]} style={{ padding: "10px 14px" }}>
+              <button onClick={() => void renderChapter(c.idx)} disabled={!!phase[c.idx] || !isChapterVoiced(c.status)} style={{ padding: "10px 14px" }}>
                 {phase[c.idx] === "preparing" ? "Preparing audio…" : phase[c.idx] === "rendering" ? `Rendering ${Math.round((pct[c.idx] ?? 0) * 100)}%` : phase[c.idx] === "uploading" ? "Uploading…" : "Render + upload"}
               </button>
               <button onClick={() => void regen(c.idx)} style={{ padding: "10px 14px" }}>New script</button>
@@ -213,8 +217,10 @@ function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) {
       </ol>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
         <button onClick={() => void renderThumbnail()} style={{ padding: "12px 18px" }}>Render + upload thumbnail</button>
-        <button onClick={() => void setStatus("approved")} style={{ padding: "12px 18px" }}>Approve episode</button>
-        <button onClick={() => void ytInfo()} style={{ padding: "12px 18px" }}>YouTube info</button>
+        {detail.status === "approved"
+          ? <button onClick={() => void setStatus("pending")} style={{ padding: "12px 18px" }}>Un-approve</button>
+          : <button onClick={() => void setStatus("approved")} style={{ padding: "12px 18px" }}>Approve episode</button>}
+        <button onClick={() => void ytInfo()} disabled={detail.status !== "approved"} style={{ padding: "12px 18px" }}>YouTube info</button>
       </div>
       {thumbUrl && <div><p>Thumbnail preview:</p><img src={thumbUrl} alt="thumbnail" style={{ width: "100%" }} /></div>}
       {yt && (

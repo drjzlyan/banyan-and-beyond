@@ -1,6 +1,7 @@
 import { buildOutline, selectTheme } from "@banyan/core";
 import { themeById } from "@banyan/core";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import { deletePrefix } from "./clips.ts";
 import type { Env, EpisodeParams } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 
@@ -43,10 +44,22 @@ export class RechapterWorkflow extends WorkflowEntrypoint<Env, { episodeId: stri
   async run(event: WorkflowEvent<{ episodeId: string; chapter: number }>, step: WorkflowStep) {
     const env = this.env;
     const { episodeId, chapter } = event.payload;
+    // delete before resetting, so a cron run in between can never lose freshly voiced clips
+    await step.do("delete old media", retry(2, "5 seconds"), async () => {
+      await ensureSchema(env.DB);
+      const row = await env.DB.prepare("SELECT video_key FROM chapters WHERE episode_id = ? AND idx = ?").bind(episodeId, chapter).first<{ video_key: string | null }>();
+      if (row?.video_key) await env.BUCKET.delete(row.video_key);
+      return { deleted: await deletePrefix(env, `episodes/${episodeId}/ch-${chapter}-`) };
+    });
     await step.do("reset chapter", retry(2, "5 seconds"), async () => {
       await ensureSchema(env.DB);
-      await env.DB.prepare("UPDATE chapters SET status = 'chapter-pending', video_key = NULL, updated_at = ? WHERE episode_id = ? AND idx = ?").bind(new Date().toISOString(), episodeId, chapter).run();
-      await env.DB.prepare("UPDATE episodes SET status = 'chapter-pending', updated_at = ? WHERE id = ?").bind(new Date().toISOString(), episodeId).run();
+      const now = new Date().toISOString();
+      // clear the script too, or voiceNext would re-read it, find every line voiced and finish instantly
+      await env.DB.batch([
+        env.DB.prepare("UPDATE chapters SET status = 'chapter-pending', spoken = '', clips_json = '[]', duration = 0, video_key = NULL, video_duration = NULL, updated_at = ? WHERE episode_id = ? AND idx = ?").bind(now, episodeId, chapter),
+        // also drops any approval: the episode must be re-rendered and re-approved
+        env.DB.prepare("UPDATE episodes SET status = 'chapter-pending', updated_at = ? WHERE id = ?").bind(now, episodeId),
+      ]);
     });
     return { episodeId, chapter };
   }

@@ -22,14 +22,15 @@ export async function mintAccessToken(env: Env): Promise<string> {
 export async function finalizeUploads(env: Env): Promise<string> {
   if (!env.YT_CLIENT_ID || !env.YT_REFRESH_TOKEN) return "youtube-unconfigured";
   await ensureSchema(env.DB);
+  // look for work first: this runs every 10 minutes and usually has nothing to do
+  const rows = (await env.DB.prepare("SELECT episode_id, yt_video_id FROM yt_uploads WHERE status = 'uploading' AND yt_video_id IS NOT NULL LIMIT 5").all<{ episode_id: string; yt_video_id: string }>()).results;
+  if (!rows.length) return "nothing-uploading";
   let access: string;
   try {
     access = await mintAccessToken(env);
   } catch (e) {
     return `token-failed: ${(e as Error).message}`;
   }
-  const rows = (await env.DB.prepare("SELECT episode_id, yt_video_id FROM yt_uploads WHERE status = 'uploading' AND yt_video_id IS NOT NULL LIMIT 5").all<{ episode_id: string; yt_video_id: string }>()).results;
-  if (!rows.length) return "nothing-uploading";
   const out: string[] = [];
   for (const r of rows) {
     try {
@@ -42,7 +43,8 @@ export async function finalizeUploads(env: Env): Promise<string> {
           env.DB.prepare("UPDATE yt_uploads SET status = 'posted', error = NULL, updated_at = ? WHERE episode_id = ?").bind(now, r.episode_id),
           env.DB.prepare("UPDATE episodes SET status = 'posted', updated_at = ? WHERE id = ?").bind(now, r.episode_id),
         ]);
-        out.push(`${r.episode_id}: posted`);
+        const freed = await freeChapterVideos(env, r.episode_id);
+        out.push(`${r.episode_id}: posted (freed ${freed} chapter videos)`);
       } else if (state === "failed" || state === "missing") {
         await env.DB.batch([
           env.DB.prepare("UPDATE yt_uploads SET status = 'failed', error = ?, updated_at = ? WHERE episode_id = ?").bind(`YouTube reported ${state}`, now, r.episode_id),
@@ -57,4 +59,16 @@ export async function finalizeUploads(env: Env): Promise<string> {
     }
   }
   return out.join("; ");
+}
+
+/**
+ * YouTube now holds the full episode, so drop the chapter MP4s (the bulk of R2 use)
+ * to stay inside the 10 GB free allowance. Voice clips and the thumbnail are kept.
+ */
+async function freeChapterVideos(env: Env, episodeId: string): Promise<number> {
+  const rows = (await env.DB.prepare("SELECT idx, video_key FROM chapters WHERE episode_id = ? AND video_key IS NOT NULL").bind(episodeId).all<{ idx: number; video_key: string }>()).results;
+  if (!rows.length) return 0;
+  await env.BUCKET.delete(rows.map((r) => r.video_key));
+  await env.DB.prepare("UPDATE chapters SET video_key = NULL, updated_at = ? WHERE episode_id = ?").bind(new Date().toISOString(), episodeId).run();
+  return rows.length;
 }

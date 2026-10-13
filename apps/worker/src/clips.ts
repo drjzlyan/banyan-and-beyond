@@ -22,3 +22,16 @@ export async function speakLine(
   await env.BUCKET.put(key, audio, { httpMetadata: { contentType: "audio/mpeg" } });
   return { speaker, text, duration: mp3Duration(audio.byteLength), url: `${env.PUBLIC_BASE}/assets/${key}` };
 }
+
+/** Delete every R2 object under a prefix (keeps the 10 GB free allowance from filling up). */
+export async function deletePrefix(env: Env, prefix: string): Promise<number> {
+  let n = 0;
+  let cursor: string | undefined;
+  do {
+    const page = await env.BUCKET.list({ prefix, cursor });
+    if (page.objects.length) await env.BUCKET.delete(page.objects.map((o) => o.key));
+    n += page.objects.length;
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return n;
+}

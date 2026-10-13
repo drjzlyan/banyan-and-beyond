@@ -4,6 +4,7 @@ import {
   isNeuronsExhausted,
   layoutLines,
   selectTheme,
+  shortHash,
   splitDialogue,
   splitNightlyShare,
   themeById,
@@ -15,6 +16,9 @@ import type { Env } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 
 const newId = () => `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+/** Episodes not yet posted. Two staggered in flight: one voicing while the other waits in the Studio. */
+const MAX_IN_FLIGHT = 2;
 
 /**
  * The nightly engine (cron 22:00 UTC). One invocation advances the queue by one step:
@@ -33,11 +37,9 @@ export async function voiceNext(env: Env): Promise<string> {
   ).first<{ episodeId: string; idx: number }>();
 
   if (!pending) {
-    const open = await env.DB.prepare(
-      `SELECT id FROM episodes WHERE status != 'posted' ORDER BY created_at DESC LIMIT 1`,
-    ).first<{ id: string }>();
-    if (open) return `idle: episode ${open.id} awaiting studio`;
-    return createOutline(env, {});
+    const open = await env.DB.prepare(`SELECT COUNT(*) n FROM episodes WHERE status != 'posted'`).first<{ n: number }>();
+    if ((open?.n ?? 0) >= MAX_IN_FLIGHT) return `idle: ${open?.n} episodes awaiting studio`;
+    return `outlined ${await createOutline(env, {})}`;
   }
 
   const ch = await env.DB.prepare("SELECT * FROM chapters WHERE episode_id = ? AND idx = ?").bind(pending.episodeId, pending.idx).first<{
@@ -74,7 +76,9 @@ export async function voiceNext(env: Env): Promise<string> {
   try {
     for (const [i, l] of tonight.entries()) {
       const n = voiced.length + i;
-      fresh.push(await speakLine(env, `episodes/${pending.episodeId}/ch-${pending.idx}-line-${n}.mp3`, l.speaker, l.text));
+      // text hash in the key: a re-scripted line never collides with a cached old clip
+      const key = `episodes/${pending.episodeId}/ch-${pending.idx}-line-${n}-${shortHash(`${l.speaker}:${l.text}`)}.mp3`;
+      fresh.push(await speakLine(env, key, l.speaker, l.text));
     }
   } catch (e) {
     // save whatever got voiced, then pause (neurons) or fail loudly (real error)
@@ -90,14 +94,14 @@ export async function voiceNext(env: Env): Promise<string> {
   const timeline = layoutLines(all.map((c) => ({ speaker: c.speaker, text: c.text, duration: c.duration })));
   const done = all.length >= lines.length;
   await env.DB.prepare("UPDATE chapters SET clips_json = ?, duration = ?, status = ?, updated_at = ? WHERE episode_id = ? AND idx = ?")
-    .bind(JSON.stringify(timed(timeline.clips, all)), timeline.duration, done ? "rendered" : "chapter-pending", now(), pending.episodeId, pending.idx).run();
+    .bind(JSON.stringify(timed(timeline.clips, all)), timeline.duration, done ? "voiced" : "chapter-pending", now(), pending.episodeId, pending.idx).run();
   if (done) {
-    const left = await env.DB.prepare("SELECT COUNT(*) n FROM chapters WHERE episode_id = ? AND status != 'rendered'").bind(pending.episodeId).first<{ n: number }>();
+    const left = await env.DB.prepare("SELECT COUNT(*) n FROM chapters WHERE episode_id = ? AND status = 'chapter-pending'").bind(pending.episodeId).first<{ n: number }>();
     await env.DB.prepare("UPDATE episodes SET status = ?, updated_at = ? WHERE id = ?")
       .bind((left?.n ?? 0) === 0 ? "pending" : "chapter-pending", now(), pending.episodeId).run();
   }
   return done
-    ? `rendered ${pending.episodeId} #${pending.idx} (${all.length} lines)`
+    ? `voiced ${pending.episodeId} #${pending.idx} (${all.length} lines)`
     : `voiced ${pending.episodeId} #${pending.idx} (${all.length}/${lines.length}, resumes tomorrow)`;
 }
 

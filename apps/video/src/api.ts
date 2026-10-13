@@ -19,12 +19,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /** PUT a file with upload progress (fetch cannot report it). */
-export function putFile<T>(path: string, body: Blob, contentType: string, onProgress: (fraction: number) => void): Promise<T> {
+export function putFile<T>(path: string, body: Blob, contentType: string, onProgress: (fraction: number) => void, headers: Record<string, string> = {}): Promise<T> {
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
     x.open("PUT", path);
     x.setRequestHeader("x-admin-token", getToken());
     x.setRequestHeader("content-type", contentType);
+    for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
     x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
     x.onload = () => {
       if (x.status >= 200 && x.status < 300) return resolve(JSON.parse(x.responseText) as T);

@@ -1,6 +1,6 @@
 # Banyan and Beyond — progress, decisions and plan
 
-_Last updated: 2026-10-10 (P0 scaffold). Keep current at the end of every session._
+_Last updated: 2026-10-13 (pre-live-run fixes, branch `fix/first-live-run`). Keep current at the end of every session._
 
 ## 1. Goal
 
@@ -23,6 +23,7 @@ YouTube channel **Banyan and Beyond**: Ajja tells 1-hr episodes (8 × ~7.5-min c
 | Voice per line (Aura-2, nightly budget engine, voice-demo path live) | ✅ P2 done, ear check deferred |
 | Remotion chapter render + Studio per-chapter flow + thumbnail | ✅ P3 done, browser-render test deferred |
 | YouTube resumable upload + finalize cron | ✅ P4 done, OAuth/secrets/live test deferred |
+| Pre-live-run review: regenerate, approval gate, Range, free-tier limits | ✅ fixed on `fix/first-live-run` (not yet merged/deployed) |
 
 Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https://banyan-and-beyond.dbldr.app/health`.
 
@@ -41,8 +42,10 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
 - **2026-10-10 (P3 render)** — Real `BanyanVideo` Remotion composition (1280×720/24fps, puppets + lip-sync + word captions + moral card + progress), `Thumbnail` still, per-speaker browser pitch-shift + mouth envelope (ported from chota), Studio per-chapter render→upload→approve + thumbnail + script view + regenerate. Next: P4 YouTube.
 - **2026-10-10 (P4 YouTube)** — Pure upload builders (`youtube-upload.ts`, 6 tests) + worker token-mint/finalize-cron + Studio assemble (ffmpeg.wasm concat) + resumable upload with progress + thumbnail set + complete. Real chapter timestamps from voiced durations. Deferred: owner OAuth + secrets + live upload test. Next: P5 polish.
 - **2026-10-10 (P5 + done)** — Detail endpoint includes yt_upload state; README updated. 23 tests pass. **Build complete; deferred owner items in §6.**
+- **2026-10-13 (pre-live-run review)** — Code review before the first live run; all fixes on branch `fix/first-live-run`, **not merged to `main` (merging deploys)**. Fixed: (1) "New script" was a no-op: it did not clear `spoken`/`clips_json`, so `voiceNext` re-read the old script and finished at once. Now it clears them and deletes the old R2 media first. (2) A half-voiced chapter could be rendered and frozen as `rendered`. Chapter states are now `chapter-pending → voiced → rendered`; the video PUT refuses unvoiced chapters and the Render button is disabled until voiced. Legacy `rendered` rows without video count as voiced. (3) Approval gate enforced server-side: `upload-url` and `complete` require `approved`; `approved` requires all 8 chapter videos; `/status` accepts only approve/un-approve (no more setting `posted` by hand); a re-render or regenerate drops approval; uploading/posted episodes are locked. (4) YouTube timestamps now use the real rendered length (`chapters.video_duration`, sent by the Studio as `x-video-duration`), because pitch shift and the 20-frame tail change it. (5) `/assets` Range requests return 206 + `Content-Range`; before, they sent a 200 whose `content-length` didn't match the partial body. (6) Free tier: chapter MP4s are rendered at 1 Mbps with a 95 MB client and server cap (the free plan limits request bodies to 100 MB); re-renders delete the old object; chapter MP4s are deleted from R2 once the episode is posted (R2 has 10 GB free). (7) Media keys carry a revision or text hash, so `max-age=86400` can't serve stale audio or video. (8) The nightly cron now keeps **2 episodes in flight** (§4), where before it only started an outline once every episode was posted. (9) `finalizeUploads` checks for pending rows before minting a token. New pure module `core/lifecycle.ts`; 33 tests pass; typecheck, Studio build and wrangler dry-run all OK. **Watch on the first live run:** the in-Worker `voiceNext` path has never run live (P1/P2 demos ran through REST locally), so check the cron logs for free-plan per-invocation limits (CPU, subrequests: about 40 TTS calls plus 2–6 LLM calls per night). The `video_duration` ALTER runs lazily on the live D1 at first request after deploy.
 ## 6. Deferred owner items (everything else is built)
 
+0. **Review + merge `fix/first-live-run`** — merging to `main` deploys. Re-render any chapter rendered before this change, so its `video_duration` gets recorded.
 1. **Ear check** — play `/tmp/banyan-voice-*.mp3` (regenerate with `pnpm --filter @banyan/core voice-demo`); confirm Luna works for Ajja at 0.9x and pick the Kid voice (code default: Luna at 1.3x).
 2. **YouTube OAuth** — create a Google Cloud project, enable YouTube Data API v3, OAuth consent (external) + desktop/web client, run the consent flow to get a refresh token with `youtube.upload` scope.
 3. **Secrets** — `gh secret set YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN`, then add them to `deploy.yml`'s secrets block (currently ADMIN_TOKEN only so deploys stay green).
