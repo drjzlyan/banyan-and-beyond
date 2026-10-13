@@ -12,7 +12,7 @@ import {
   type AiRunner,
   type EpisodeOutline,
 } from "@banyan/core";
-import { getVoiceSettings, speakLine, type StoredLineClip } from "./clips.ts";
+import { deletePrefix, getVoiceSettings, speakLine, type StoredLineClip } from "./clips.ts";
 import type { Env } from "./env.ts";
 import { ensureSchema } from "./schema.ts";
 
@@ -49,6 +49,8 @@ export async function voiceNext(env: Env): Promise<string> {
   if (!ch) throw new Error(`chapter row missing for ${pending.episodeId} #${pending.idx}`);
 
   let lines;
+  // set when tonight writes a new script: any stored clips belong to the old one and must not be reused
+  let rescripted = false;
   try {
     lines = splitDialogue(ch.spoken);
   } catch {
@@ -64,13 +66,16 @@ export async function voiceNext(env: Env): Promise<string> {
       await env.DB.prepare("UPDATE chapters SET spoken = ?, clips_json = '[]', duration = 0, updated_at = ? WHERE episode_id = ? AND idx = ?")
         .bind(gen.spoken, now(), pending.episodeId, pending.idx).run();
       lines = gen.lines;
+      rescripted = true;
+      // clips of the replaced script are orphans now (new keys carry a text hash)
+      if (JSON.parse(ch.clips_json || "[]").length) await deletePrefix(env, `episodes/${pending.episodeId}/ch-${pending.idx}-line-`);
     } catch (e) {
       if (isNeuronsExhausted(e)) return `paused-neurons scripting ${pending.episodeId} #${pending.idx}`;
       throw e;
     }
   }
 
-  const voiced = JSON.parse(ch.clips_json || "[]") as StoredLineClip[];
+  const voiced = rescripted ? [] : (JSON.parse(ch.clips_json || "[]") as StoredLineClip[]);
   const remaining = lines.slice(voiced.length).map((l) => ({ speaker: l.speaker, text: l.text }));
   const { tonight } = splitNightlyShare(remaining);
   const voices = await getVoiceSettings(env);

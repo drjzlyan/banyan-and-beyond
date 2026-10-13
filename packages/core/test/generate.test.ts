@@ -88,3 +88,43 @@ describe("generateChapter (two halves)", () => {
     expect(out.attempts).toBe(4);
   });
 });
+
+/** What gpt-oss really returns for "18-26 lines of 6-14 words": short parts, about 10 words a line. */
+function realisticPart(lines: number, opts: { startCue?: boolean; endCue?: boolean } = {}): string[] {
+  const ten = "Meena ran to the river with her red kite today";
+  const rows = Array.from({ length: lines }, (_, i) => `${i % 3 === 2 ? "KID" : "AJJA"}: ${ten}.`);
+  rows.splice(4, 0, "SFX: wind");
+  if (opts.startCue) rows.unshift("SFX: birds");
+  if (opts.endCue) rows.push("SFX: bell");
+  return rows;
+}
+
+describe("generateChapter with realistic short parts", () => {
+  it("keeps three ~220-word parts instead of throwing them away", async () => {
+    const ai: AiRunner = vi.fn(async () => resultFor(realisticPart(22)));
+    const out = await generateChapter(ai, outline, 2, { maxAttempts: 1 });
+    expect(ai).toHaveBeenCalledTimes(3);
+    expect(out.words).toBe(660);
+  });
+
+  it("adds a fourth part when three would fall short of the target", async () => {
+    const ai: AiRunner = vi.fn(async () => resultFor(realisticPart(18)));
+    const out = await generateChapter(ai, outline, 2, { maxAttempts: 1 });
+    expect(ai).toHaveBeenCalledTimes(4);
+    expect(out.words).toBe(720);
+    // only the final (fourth) part was told to end on the hook
+    const prompts = (ai as ReturnType<typeof vi.fn>).mock.calls.map((c) => (c[1] as { messages: { content: string }[] }).messages.map((m) => m.content).join(" "));
+    expect(prompts.filter((p) => /LAST line, and only your last line/.test(p))).toHaveLength(1);
+    expect(prompts[3]).toMatch(/LAST line, and only your last line/);
+  });
+
+  it("merges a cue that ends one part with a cue that starts the next", async () => {
+    const ai: AiRunner = vi.fn()
+      .mockResolvedValueOnce(resultFor(realisticPart(24, { endCue: true })))
+      .mockResolvedValueOnce(resultFor(realisticPart(24, { startCue: true })))
+      .mockResolvedValueOnce(resultFor(realisticPart(24)));
+    const out = await generateChapter(ai, outline, 2, { maxAttempts: 1 });
+    expect(out.spoken).not.toMatch(/^SFX: bell\nSFX: birds$/m);
+    expect(out.spoken).toMatch(/^SFX: bell$/m);
+  });
+});

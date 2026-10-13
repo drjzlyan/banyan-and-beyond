@@ -9,9 +9,17 @@ import type { DialogueLine, EpisodeOutline } from "./types.ts";
  * One model call plateaus near 300 words, so a chapter is written in CHAPTER_PARTS parts.
  */
 export const CHAPTER_PARTS = 3;
+/** A fourth part is added when three short parts would land under TARGET_CHAPTER_WORDS. */
+export const MAX_CHAPTER_PARTS = 4;
 export const PART_WORDS = 280;
-export const MIN_CHAPTER_WORDS = 720;
-export const MAX_CHAPTER_WORDS = 1050;
+export const PART_MIN_WORDS = 180;
+export const TARGET_CHAPTER_WORDS = 720;
+/**
+ * Hard window for the joined chapter. The floor is what three minimum-length parts can reach, so a
+ * chapter made of valid parts is never thrown away (a throw would stall the nightly queue on it).
+ */
+export const MIN_CHAPTER_WORDS = CHAPTER_PARTS * PART_MIN_WORDS;
+export const MAX_CHAPTER_WORDS = 1400;
 
 const SYSTEM = `You are Ajja, a warm Indian grandfather telling bedtime stories under the old banyan tree to his curious six-year-old grandchild. Your stories quietly teach good behaviour: honesty, kindness, duty, courage, respect, sharing, cleanliness, gratitude. You love old traditions and speak of elders and festivals with fondness, and you are kind to every person in the village. You never preach and never scold; the lesson grows out of what happens.
 Make it SIMPLE and FUN for a five-to-eight-year-old:
@@ -91,6 +99,8 @@ export function wordCount(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
 
+const isCue = (row: string | undefined) => !!row && /^SFX:/i.test(row.trim());
+
 /** Words actually spoken (sound cues and speaker tags excluded). */
 export function spokenWords(rows: string[]): number {
   return wordCount((parseDialogue(rows.join("\n")).filter(Boolean) as DialogueLine[]).map((l) => l.text).join(" "));
@@ -114,10 +124,15 @@ export async function generateChapter(
   const max = opts.maxAttempts ?? 3;
   let attempts = 0;
   const raw: string[] = [];
-  for (let index = 0; index < CHAPTER_PARTS; index++) {
-    const part = await generatePart(ai, outline, chapterIndex, raw.length ? [...raw] : undefined, { index, count: CHAPTER_PARTS }, primary, fallback, max);
+  let count = CHAPTER_PARTS;
+  for (let index = 0; index < count; index++) {
+    const part = await generatePart(ai, outline, chapterIndex, raw.length ? [...raw] : undefined, { index, count }, primary, fallback, max);
     attempts += part.attempts;
-    raw.push(...part.lines);
+    // a part may open with a cue right after one that closed the previous part: keep just one
+    const lines = isCue(raw[raw.length - 1]) && isCue(part.lines[0]) ? part.lines.slice(1) : part.lines;
+    raw.push(...lines);
+    // before writing the last part, check three parts will reach the target; if not, add one more
+    if (index === count - 2 && count < MAX_CHAPTER_PARTS && spokenWords(raw) + PART_WORDS < TARGET_CHAPTER_WORDS) count++;
   }
   const withFixed = [
     ...(chapterIndex === 0 ? [`AJJA: ${INTRO_LINE}`] : []),
@@ -169,7 +184,7 @@ async function generatePart(
     const errs = validateChapterBody(raw.join("\n"));
     if (errs.length) { feedback = errs.slice(0, 4); continue; }
     const words = spokenWords(raw);
-    if (words < 200 || words > 400) { feedback = [`this part is ${words} words, target 240-340 (add or trim whole AJJA/KID lines)`]; continue; }
+    if (words < PART_MIN_WORDS || words > 400) { feedback = [`this part is ${words} words, target 240-340 (add or trim whole AJJA/KID lines)`]; continue; }
     return { lines: raw, attempts: attempt };
   }
   throw new Error(`chapter part ${part.index + 1} failed after ${max} attempts: ${feedback?.join("; ")}`);

@@ -23,7 +23,7 @@ A faceless YouTube channel: **Ajja** (grandpa) tells gentle ~48-minute story epi
   Concat 8 MP4s in browser ─► YouTube resumable upload (browser PUTs bytes) ─► Worker sets title/desc/thumbnail
 ```
 
-One ~6-min chapter ≈ 840 words ≈ 4,800 TTS chars ≈ 2 nights at the 3,000-char nightly budget (10k neurons/day free) → each episode assembles over **~16 nights**. Sound effects and ambience are synthesized in the browser at render time and cost no neurons.
+One ~6-min chapter ≈ 840 words ≈ 4,800 TTS chars ≈ 2 nights at the 3,000-char nightly budget (10k neurons/day free) → each episode assembles over **about 16–24 nights** (the scripting night also spends neurons on the story model, so it voices less). Sound effects and ambience are synthesized in the browser at render time and cost no neurons.
 
 Everything runs on **Cloudflare's free tier** and is deployed **only by GitHub Actions**.
 

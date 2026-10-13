@@ -84,7 +84,7 @@ export function SystemPanel() {
         <p className="small" style={{ marginTop: 0 }}>
           Aura-2 costs about 2,727 neurons per 1,000 characters, against 10,000 free neurons a day. The nightly cron voices at most {NIGHTLY_TTS_CHAR_BUDGET.toLocaleString()} characters, and Voice Lab previews come out of the same daily allowance.
           Chapters now aim for about 6 minutes (about 840 words, about 4,800 characters), so each takes two nights to voice:
-          an 8-chapter episode is about 48 minutes and is ready in about 16 nights. Sound effects are made in your browser and cost no neurons.
+          an 8-chapter episode is about 48 minutes and is ready in about 16 to 24 nights (a night that also writes the script voices less). Sound effects are made in your browser and cost no neurons.
         </p>
       </div>
     </>

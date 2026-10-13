@@ -1,7 +1,7 @@
 import type { DialogueLine, Speaker } from "./types.ts";
 
-/** Max spoken lines per ~6-min chapter (3 parts of up to 30 short lines + intro/outro). Keeps TTS neuron budget predictable. */
-export const MAX_LINES_PER_CHAPTER = 94;
+/** Max spoken lines per ~6-min chapter (up to 4 parts of up to 30 short lines + intro/outro). Keeps TTS neuron budget predictable. */
+export const MAX_LINES_PER_CHAPTER = 122;
 /** Short lines are easier for six-year-olds to follow (the prompt asks for 6-14 words). */
 export const MAX_WORDS_PER_LINE = 20;
 export const MAX_SFX_PER_CHAPTER = 24;

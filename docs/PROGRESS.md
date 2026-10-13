@@ -31,7 +31,7 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
 
 ## 4. Neuron budget (do not re-derive)
 
-~6-min chapter ≈ 840 words ≈ 4,800 chars → 2 nights each at the 3,000-char nightly budget (Aura-2 ≈ 2,727 neurons/1k chars vs 10k/day free; scripting shares that budget). Episode ready in ~16 nights; 2 staggered in flight.
+~6-min chapter ≈ 840 words ≈ 4,800 chars → 2 nights each at the 3,000-char nightly budget (Aura-2 ≈ 2,727 neurons/1k chars vs 10k/day free; scripting shares that budget). Episode ready in about 16–24 nights (scripting nights spend 3–9 gpt-oss calls of the same budget, so they voice less); 2 staggered in flight.
 
 ## 5. Session log (oldest first)
 
@@ -67,6 +67,7 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
   - 48 tests pass; typecheck, build and dry-run are OK; Studio driven with Playwright, including Preview.
   - A 43 s demo (`banyan-demo-scene.mp4`, silent voices) was sent to the owner.
 
+  **Follow-up fixes (same session):** (1) Generation now converges with realistic short parts. 18–26 lines of 6–14 words comes to about 220 words a part, so a joined 720-word floor would have thrown away valid chapters and stalled the queue every night on the same one. Now a 4th part is added when three won't reach `TARGET_CHAPTER_WORDS` (720), the hard floor is 3 × `PART_MIN_WORDS` (540), and a cue ending one part plus a cue starting the next are merged into one. Tests use realistic 22 × 10-word parts. (2) `voiceNext` discarded nothing when it re-scripted a chapter, so stored clips from the old script were kept under the new text. It now starts with no clips and deletes the old `ch-N-line-*` mp3s. Because of this, chapters scripted before the merge with long lines will fail the new 20-word cap and get re-scripted: on those, **Re-voice acts like New script**, so use New script directly.
   **Every chapter scripted before this merges needs New script** (old prompt, long lines, no SFX, Luna). Remotion licensing: the free license covers individuals and companies of up to 3 people; the Player is passed `acknowledgeRemotionLicense`.
 ## 6. Deferred owner items (everything else is built)
 
