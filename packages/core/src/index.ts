@@ -9,3 +9,4 @@ export * from "./youtube.ts";
 export * from "./youtube-upload.ts";
 export * from "./lifecycle.ts";
 export * from "./analysis.ts";
+export * from "./shots.ts";

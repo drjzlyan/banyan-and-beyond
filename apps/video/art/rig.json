@@ -1,0 +1,29 @@
+{
+  "$comment": "Cut-out rig for the Inspyry characters, in each SVG's own viewBox units (measured with a grid render). `pnpm --filter @banyan/video rig` writes <id>.head.svg (headPoly, extended `neck` units down so the seam stays covered when the head turns) and <id>.body.svg (everything outside headPoly). The head pivots at `pivot`; blinks draw eyelids over `eyes`. `viewBox` must match the SVG (the rig script checks it).",
+  "ajja": {
+    "viewBox": [158.07, 94.06, 715.25, 841.47],
+    "headPoly": [[330, 150], [688, 150], [688, 470], [640, 470], [590, 565], [508, 602], [430, 565], [380, 470], [330, 470]],
+    "neck": 18,
+    "pivot": [510, 560],
+    "eyes": [[458, 357], [569, 357]],
+    "eyelid": {
+      "rx": 20,
+      "ry": 17,
+      "fill": "#F2C14E",
+      "line": "#6B4423"
+    }
+  },
+  "kid": {
+    "viewBox": [179.63, 107.08, 662.22, 827.77],
+    "headPoly": [[225, 140], [800, 140], [800, 422], [692, 422], [692, 522], [225, 522]],
+    "neck": 18,
+    "pivot": [500, 525],
+    "eyes": [[438, 372], [580, 372]],
+    "eyelid": {
+      "rx": 40,
+      "ry": 41,
+      "fill": "#C98B5A",
+      "line": "#3B2A17"
+    }
+  }
+}

@@ -1,7 +1,8 @@
-import type { PreparedClip, SfxId } from "@banyan/core";
+import { planShots, type PreparedClip, type SfxId } from "@banyan/core";
+import { useMemo } from "react";
 // @remotion/media's Audio: the browser renderer rejects remotion's Html5Audio ("<Html5Audio> is not supported")
 import { Audio } from "@remotion/media";
-import { AbsoluteFill, Img, Sequence, interpolate, interpolateColors, random, spring, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, Img, Sequence, interpolate, interpolateColors, random, spring, useCurrentFrame } from "remotion";
 import { ArtScene } from "./ArtScene.tsx";
 import { ART, hasStorybookArt } from "./art.ts";
 import { FPS } from "./audio.ts";
@@ -60,12 +61,13 @@ export function BanyanVideo(props: BanyanVideoProps) {
   const sway = (i: number, amp = 1) => Math.sin(time * 0.9 + i * 1.7) * (3 + wind * 14) * amp;
 
   const storybook = hasStorybookArt();
+  const shots = useMemo(() => (storybook ? planShots(props.clips, cues, props.duration) : []), [storybook, props.clips, cues, props.duration]);
   const cueStart = (id: SfxId) => active.find((c) => c.id === id)?.at ?? 0;
 
   return (
     <AbsoluteFill style={{ background: skyBottom, fontFamily: "'Baloo 2', 'Comic Sans MS', 'Trebuchet MS', sans-serif", overflow: "hidden" }}>
       {storybook && (
-        <ArtScene time={time} progress={progress} speaker={clip?.speaker ?? null} open={open}
+        <ArtScene time={time} progress={progress} clips={props.clips} shots={shots} speaker={clip?.speaker ?? null} open={open}
           excited={clip?.speaker === "KID" && /[?!]\s*$/.test(clip.text)} level={level} cueStart={cueStart} />
       )}
       {/* fallback scene drawn in code, used until the Inspyry art exists (see art/manifest.json) */}
@@ -160,6 +162,9 @@ export function BanyanVideo(props: BanyanVideoProps) {
         </div>
       )}
 
+      {/* storybook iris: opens on the scene, closes at the very end */}
+      {storybook && <Iris r={interpolate(time, [0.3, 1.5], [0, 760], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.5, 0, 0.2, 1) })} />}
+
       {/* opening title card */}
       {time < 3.2 && (
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", opacity: interpolate(time, [0, 0.4, 2.6, 3.2], [0, 1, 1, 0]) }}>
@@ -181,6 +186,10 @@ export function BanyanVideo(props: BanyanVideoProps) {
             <div style={{ fontSize: 52, color: "#2c2318", fontWeight: 700, lineHeight: 1.25 }}>{props.moral}</div>
           </div>
         </div>
+      )}
+
+      {storybook && props.duration > 20 && time > props.duration - 1.4 && (
+        <Iris r={interpolate(time, [props.duration - 1.4, props.duration - 0.2], [760, 0], { extrapolateRight: "clamp", easing: Easing.bezier(0.6, 0, 0.8, 1) })} />
       )}
 
       {/* progress: a little vine with a leaf */}
@@ -445,5 +454,16 @@ function Door({ level, time }: { level: number; time: number }) {
       <rect x={0} y={0} width={90} height={150} rx={8} fill="#8b5a2b" stroke="#3b2a17" strokeWidth={5} />
       <circle cx={72} cy={80} r={6} fill="#f2c14e" />
     </g>
+  );
+}
+
+/** A black frame with a round hole of radius r, the classic storybook iris. */
+function Iris({ r }: { r: number }) {
+  if (r >= 755) return null;
+  const cx = W / 2, cy = H / 2 - 20;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", inset: 0 }}>
+      <path fillRule="evenodd" fill="#1b1209" d={`M0 0 H${W} V${H} H0 Z M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0 Z`} />
+    </svg>
   );
 }
