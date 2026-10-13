@@ -96,7 +96,7 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
     - The motif follows the rhythm of the name, "BAN-yan and be-YOND": four quick notes and a leap to a long high note. It is played on a bansuri-style flute (breath, vibrato, meend slides) over tabla (keherwa groove) and a tanpura drone, in Bhoopali pentatonic. An answer phrase comes back down, then a tabla tihai lands on high Sa with a temple bell.
     - One score in three cuts: **intro** (≈6.6 s, chapter 1), **sting** (3 s, first phrase only, chapters 2–8) and **outro** (9 s, slower reprise under the lesson card).
     - The opening card animates on the notes (`jingleHits`): a bump per name-note, a star burst on the landing.
-    - Loudness is ≈ −16 LUFS per cut, peaks ≤ −0.8 dBFS, played at 0.8 in the mix. The spectrogram matches the score.
+    - Loudness is ≈ −16 LUFS per cut, peaks ≤ −0.8 dBFS, played at 0.65 in the mix (measured ≈ −14.5 LUFS in a render at 0.8, so lowered to sit near speech; re-check by ear against real voices). The spectrogram matches the score.
     - Variants `classic` (default), `bouncy` and `gentle`: the pick is `JINGLE_VARIANT`, the owner's call.
   - **Chapter bookends** (`core/timeline.ts`, tested): the eight chapter videos are joined into one ~48-min upload, so:
     - chapter 1 opens with the full jingle; chapters 2–8 open with the sting

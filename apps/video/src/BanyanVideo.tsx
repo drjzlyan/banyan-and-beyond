@@ -263,12 +263,12 @@ export function BanyanVideo(props: BanyanVideoProps) {
       {/* the brand jingle opens every chapter (full on chapter 1, a sting after); the reprise closes the episode */}
       {props.jingleUrl && (
         <Sequence from={0} durationInFrames={Math.round((props.jingleSeconds ?? intro) * FPS)}>
-          <Audio src={props.jingleUrl} volume={0.8} />
+          <Audio src={props.jingleUrl} volume={0.65} />
         </Sequence>
       )}
       {role === "final" && props.outroJingleUrl && (
         <Sequence from={Math.round((props.duration - outro) * FPS)} durationInFrames={Math.round((props.outroJingleSeconds ?? outro) * FPS)}>
-          <Audio src={props.outroJingleUrl} volume={0.8} />
+          <Audio src={props.outroJingleUrl} volume={0.65} />
         </Sequence>
       )}
       {/* the evening bed starts once the jingle has had the stage */}
