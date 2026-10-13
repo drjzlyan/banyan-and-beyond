@@ -2,6 +2,7 @@ import type { Shot, SfxId } from "@banyan/core";
 import { Img, interpolate, interpolateColors, random, spring } from "remotion";
 import rigJson from "../art/rig.json";
 import { ART } from "./art.ts";
+import { FPS } from "./audio.ts";
 import { cameraAt, layerTransform, type Camera } from "./camera.ts";
 
 /**
@@ -15,7 +16,6 @@ const W = 1280;
 const H = 720;
 const GROUND = 540;
 const INK = "#3b2a17";
-const FPS = 30;
 
 type Level = (id: SfxId) => number;
 type Who = "AJJA" | "KID";

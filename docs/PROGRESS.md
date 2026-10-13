@@ -91,6 +91,38 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
   - **Calmer motion**: one butterfly, the parrot glances every few seconds, the puppy perks up only on cues and excited lines, gentler tree sway. The eye goes to the speaker.
   - **Renderer findings** (`@remotion/web-renderer`): SVG `<Img>` stays sharp at any zoom. `blur`, `drop-shadow`, `mask-image` and `clip-path` work. CSS radial gradients, `mix-blend-mode` and box-shadow spread do **not**, so glows and the vignette are SVG gradients. Each inline `<svg>` is rasterised on its own, so gradient `<defs>` must live in the same `<svg>` that uses them.
   - **Cost**: depth-of-field blur was tried and dropped (≈90 ms/frame, a third of render time). Rendering is now ≈5× real time (it was 4×), so a 6-minute chapter takes ≈30 min in the Studio tab. Checked at the production 1 Mbps: the eased moves don't smear.
+- **2026-10-13 (brand jingle + storytelling)** — The owner asked for catchy brand music that viewers will link to the channel, and for storytelling that keeps kids watching to the end.
+  - **Jingle** (`apps/video/src/jingle.ts`): a sonic logo synthesized in the browser (free, no samples, deterministic, so every video carries the identical tune).
+    - The motif follows the rhythm of the name, "BAN-yan and be-YOND": four quick notes and a leap to a long high note. It is played on a bansuri-style flute (breath, vibrato, meend slides) over tabla (keherwa groove) and a tanpura drone, in Bhoopali pentatonic. An answer phrase comes back down, then a tabla tihai lands on high Sa with a temple bell.
+    - One score in three cuts: **intro** (≈6.6 s, chapter 1), **sting** (3 s, first phrase only, chapters 2–8) and **outro** (9 s, slower reprise under the lesson card).
+    - The opening card animates on the notes (`jingleHits`): a bump per name-note, a star burst on the landing.
+    - Loudness is ≈ −16 LUFS per cut, peaks ≤ −0.8 dBFS, played at 0.8 in the mix. The spectrogram matches the score.
+    - Variants `classic` (default), `bouncy` and `gentle`: the pick is `JINGLE_VARIANT`, the owner's call.
+  - **Chapter bookends** (`core/timeline.ts`, tested): the eight chapter videos are joined into one ~48-min upload, so:
+    - chapter 1 opens with the full jingle; chapters 2–8 open with the sting
+    - every chapter keeps 2 s after its last line so the cliffhanger is heard before the iris closes (the iris used to cover the last line)
+    - **only the final chapter** gets the lesson card, the outro reprise and "See you next time under the banyan tree!" (the lesson card used to appear at the end of all eight chapters)
+    - the evening ambience starts after the jingle
+    - the sky now runs afternoon → night across the whole episode, not within each chapter, so joined chapters flow on
+    - the planner takes the chapter's real intro/outro, so middle chapters keep the close-up on their cliffhanger
+    - `frames`, `x-video-duration` and so the YouTube chapter stamps include the bookends
+  - **Storyteller pacing** (`pauseAfter`, tested): 1.4 s after Ajja's question to the children ("What would YOU do? Hmm?"), 0.9 s held breath after "And then...", 0.6 s after Ajja's other questions, 0.22 s for quick short back-and-forth, 0.35 s otherwise. It is used by `pitchClips` and the length estimate. (Aura-2 takes no SSML, so pauses are the lever under our control.)
+  - **Story craft in the prompt**:
+    - start with a surprise in the first two lines
+    - plant a small mystery and pay it off near the end
+    - things go wrong twice and work the third time
+    - say how characters feel
+    - "And then..." before a surprise
+    - the Kid guesses what happens next
+    - a capital-YOU question to the viewers with "Hmm?"
+    - a repeated chorus
+    - worries stay small and gentle
+  - **Chapter endings and continuity:**
+    - Non-final chapters now end on an in-the-moment cliffhanger ("And then... guess what happened?") instead of "tomorrow I will tell you…", since the next chapter starts seconds later in the same video. `analyzeChapter` flags "tomorrow" mid-episode.
+    - The worker passes chapter 1's opening lines (same characters, same wish) and the previous chapter's last lines (`storySoFar`) into the prompt; the first part of each chapter must answer that cliffhanger.
+  - **Episode through-line** (`outlineBeats`): one child's small wish or problem is set up in chapter 1. A mistake in chapter 2, a clue in 3, a tale inside the tale in 4, three tries in 5, the lowest moment in 6, the surprising fix in 7, then celebration and the moral in 8. This applies to **new** episodes; existing outlines in D1 keep their old beats.
+  - **Studio checklist**: each chapter card shows the storytelling checks (opening hook, question to viewers, repeated chorus, feelings, Kid guesses, cliffhanger) as ✓/✗ chips, so the owner can see whether the model followed the prompt. **Untested against the live model**: use New script on one chapter and look at the chips.
+  - Every chapter needs a re-render for the jingle, stings and bookends; chapters scripted before this need New script for the new storytelling.
 ## 6. Deferred owner items (everything else is built)
 
 0. **Review + merge `fix/first-live-run`** — merging to `main` deploys. Re-render any chapter rendered before this change, so its `video_duration` gets recorded.

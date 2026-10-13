@@ -27,9 +27,16 @@ Make it SIMPLE and FUN for a five-to-eight-year-old:
 - Tell what people DO, SEE and HEAR. No abstract ideas and no poetic comparisons (never "honesty is a river" or "trust is sand").
 - Use sound words kids love to repeat: "whoosh", "tap-tap-tap", "ding-dong", "splish-splash", "moo".
 - Give the main characters simple names (Meena, Raju, Gopal the cow) and keep the same characters all the way through.
-- The Kid is playful: guesses, giggles, gets things a bit wrong in a funny way, and asks "What happened next, Ajja?".
-- Now and then Ajja asks the children watching a question ("What would YOU do?") and pauses with "Hmm?".
-- Repeat one small catchy phrase a few times in the chapter, like a little chorus.
+- The Kid is playful: guesses what will happen ("I think..."), sometimes wrong in a funny way, giggles, and asks "What happened next, Ajja?".
+- Once or twice Ajja asks the children watching a question with a capital YOU, ending with "Hmm?" ("What would YOU do? Hmm?").
+- Repeat one small catchy phrase two or three times in the chapter, like a little chorus.
+Keep them listening until the very end:
+- Start with a surprise in the first two lines: a sound, a question, or "Guess what happened?". Never start slowly.
+- Early on, plant one small mystery (a strange sound, a missing thing, a secret box) and give the answer only near the end.
+- When someone tries something, let it go wrong twice and work the third time.
+- Say how the characters feel: happy, worried, proud, shy, surprised.
+- Before a surprise, Ajja slows down: one line ends with "And then..." and the next line gives the surprise.
+- Keep worries small and gentle (a lost kite, a missing mango) and always end them kindly.
 Output ONLY a JSON object: {"lines": string[]}. Every string is "AJJA: ...", "KID: ..." or a sound cue "SFX: <sound>".
 Rules:
 - Length is critical: 18 to 26 spoken lines and about 280 words. Count your lines before answering; anything under 16 spoken lines will be rejected.
@@ -47,19 +54,29 @@ export function buildChapterMessages(
   feedback?: string[],
   priorLines?: string[],
   part: { index: number; count: number } = { index: priorLines?.length ? CHAPTER_PARTS - 1 : 0, count: CHAPTER_PARTS },
+  story: StorySoFar = {},
 ) {
   const ch = outline.chapters[chapterIndex];
   // Ajja's welcome line is prepended by code, so the model must not welcome the children again.
-  const prev = chapterIndex > 0 ? `Previous chapter ended with: ${outline.chapters[chapterIndex - 1].beat}` : `This is the opening chapter. Ajja has ALREADY greeted the children (that line is added for you), so do not welcome or greet them again; go straight into the story.`;
+  const prev = chapterIndex > 0
+    ? [
+      `Previous chapter's beat: ${outline.chapters[chapterIndex - 1].beat}`,
+      story.opening?.length ? `The story began like this (keep the SAME main characters and the same wish or problem):\n${story.opening.join("\n")}` : "",
+      story.previousEnding?.length && part.index === 0
+        ? `The previous chapter ended on this cliffhanger. Your FIRST lines must answer it straight away, then carry on:\n${story.previousEnding.join("\n")}`
+        : "",
+    ].filter(Boolean).join("\n")
+    : `This is the opening chapter. Ajja has ALREADY greeted the children (that line is added for you), so do not welcome or greet them again; go straight into the story.`;
   const lastPart = part.index === part.count - 1;
   // The hook belongs at the very end of the chapter only. Telling every part to end on a
   // hook produced several "tomorrow" promises mid-chapter (seen live in episode 1, chapter 1).
+  // Chapters are joined into one video, so the hook is an in-the-moment cliffhanger, not "tomorrow".
   const ending = chapterIndex === 7
     ? (lastPart
       ? `This is the closing chapter: gather everyone warmly and end with a soft bedtime farewell. Do NOT state the moral as a lesson sentence; show it in what happens.`
       : `This is the closing chapter, but this is not its last part: do not say goodbye yet.`)
     : (lastPart
-      ? `Do not end the story. Your LAST line, and only your last line, is a small gentle hook from Ajja ("tomorrow I will tell you what..."). No line after it.`
+      ? `Do not end the story. Your LAST line, and only your last line, is a cliffhanger from Ajja: stop at an exciting moment ("And then... guess what happened?"). The next chapter starts right after in the same video, so never say tomorrow, bedtime or rest. No line after it.`
       : `Do not mention tomorrow, bedtime or rest; the chapter continues after you.`);
   const lines = [
     `Story: "${outline.title}" (${outline.kind}). Theme: ${outline.theme.valueWord} — ${outline.theme.moral}`,
@@ -78,6 +95,20 @@ export function buildChapterMessages(
   const messages = [{ role: "system", content: SYSTEM }, { role: "user", content: lines.join("\n") }];
   if (feedback?.length) messages.push({ role: "user", content: `Your previous answer was rejected: ${feedback.join("; ")}. Return corrected JSON only.` });
   return messages;
+}
+
+/** What the earlier chapters actually said, so cliffhangers get paid off and characters stay the same. */
+export interface StorySoFar {
+  /** chapter 1's first spoken lines (who the story is about, and their wish or problem) */
+  opening?: string[];
+  /** the previous chapter's last lines (its cliffhanger) */
+  previousEnding?: string[];
+}
+
+/** Pick the continuity lines out of earlier chapters' scripts (SFX rows and the fixed welcome dropped). */
+export function storySoFar(firstChapter: string | null | undefined, previousChapter: string | null | undefined): StorySoFar {
+  const rows = (t: string | null | undefined) => (t ?? "").split("\n").map((r) => r.trim()).filter((r) => /^(AJJA|KID):/i.test(r));
+  return { opening: rows(firstChapter).filter((r) => !r.includes(INTRO_LINE)).slice(0, 6), previousEnding: rows(previousChapter).slice(-5) };
 }
 
 export function parseChapter(raw: unknown): string[] | null {
@@ -117,7 +148,7 @@ export async function generateChapter(
   ai: AiRunner,
   outline: EpisodeOutline,
   chapterIndex: number,
-  opts: { model?: string; fallbackModel?: string; maxAttempts?: number } = {},
+  opts: { model?: string; fallbackModel?: string; maxAttempts?: number; story?: StorySoFar } = {},
 ): Promise<GeneratedChapter> {
   const primary = opts.model ?? STORY_MODEL;
   const fallback = opts.fallbackModel ?? STORY_MODEL_FALLBACK;
@@ -126,7 +157,7 @@ export async function generateChapter(
   const raw: string[] = [];
   let count = CHAPTER_PARTS;
   for (let index = 0; index < count; index++) {
-    const part = await generatePart(ai, outline, chapterIndex, raw.length ? [...raw] : undefined, { index, count }, primary, fallback, max);
+    const part = await generatePart(ai, outline, chapterIndex, raw.length ? [...raw] : undefined, { index, count }, primary, fallback, max, opts.story ?? {});
     attempts += part.attempts;
     // a part may open with a cue right after one that closed the previous part: keep just one
     const lines = isCue(raw[raw.length - 1]) && isCue(part.lines[0]) ? part.lines.slice(1) : part.lines;
@@ -159,6 +190,7 @@ async function generatePart(
   primary: string,
   fallback: string,
   max: number,
+  story: StorySoFar,
 ): Promise<{ lines: string[]; attempts: number }> {
   let feedback: string[] | undefined;
   for (let attempt = 1; attempt <= max; attempt++) {
@@ -166,7 +198,7 @@ async function generatePart(
     let raw: string[] | null = null;
     try {
       const res = await ai(model, {
-        messages: buildChapterMessages(outline, chapterIndex, feedback, priorLines, part),
+        messages: buildChapterMessages(outline, chapterIndex, feedback, priorLines, part, story),
         response_format: { type: "json_object" },
         // gpt-oss is a reasoning model: it spends tokens thinking before answering,
         // and with too little headroom it returns content:null (verified live: 4000 fails, 8000 works)

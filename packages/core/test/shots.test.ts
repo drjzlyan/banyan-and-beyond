@@ -18,6 +18,17 @@ describe("planShots", () => {
     expect(shots.at(-1)).toMatchObject({ at: 40 - OUTRO_SECONDS, kind: "wide" });
   });
 
+  it("takes the chapter's own intro and outro: no lesson freeze on a middle chapter", () => {
+    const ls = lines([["AJJA", 4], ["KID", 3], ["AJJA", 4], ["KID", 3], ["AJJA", 4], ["KID", 3], ["AJJA", 4], ["KID", 3]], 3.2);
+    const end = ls.at(-1)!.end + 2;
+    const mid = planShots(ls, [], end, { establishSeconds: 3, outroSeconds: 0 });
+    expect(mid.at(-1)!.kind).not.toBe("wide");
+    expect(mid[1]!.at).toBeGreaterThanOrEqual(3);
+    expect(shotAt(mid, ls.at(-1)!.start + 1).shot.kind).toBe("kid"); // the cliffhanger keeps its close-up
+    const fin = planShots(ls, [], end + 9, { establishSeconds: 3, outroSeconds: 9 });
+    expect(fin.at(-1)).toMatchObject({ kind: "wide", at: end });
+  });
+
   it("gives long lines a close-up on the speaker and cuts between close-ups", () => {
     const ls = lines([["AJJA", 3], ["AJJA", 4], ["KID", 4], ["AJJA", 5]], 2);
     const shots = planShots(ls, [], 60);

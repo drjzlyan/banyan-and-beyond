@@ -1,4 +1,4 @@
-import { SFX_GAP_SECONDS, type PreparedClip, type SfxId } from "@banyan/core";
+import { SFX_GAP_SECONDS, pauseAfter, type PreparedClip, type SfxId } from "@banyan/core";
 
 export const FPS = 24;
 
@@ -33,8 +33,6 @@ export async function mouthEnvelope(clips: Clips, duration: number): Promise<num
   return norm.map((v, i) => (v * 2 + (norm[i - 1] ?? v) + (norm[i + 1] ?? v)) / 4);
 }
 
-const GAP = 0.35;
-
 export function wavBlob(buf: AudioBuffer): Blob {
   const data = buf.getChannelData(0);
   const out = new DataView(new ArrayBuffer(44 + data.length * 2));
@@ -54,7 +52,9 @@ export interface TimedCue { id: SfxId; at: number }
 /**
  * Resample every clip by its speaker's pitch (Ajja down for warmth, Kid up for youth),
  * then rebuild the timeline so captions, mouth and video length stay in sync. Each sound
- * cue gets SFX_GAP_SECONDS of room before the line it belongs to (the sound tails under it).
+ * cue gets SFX_GAP_SECONDS of room before the line it belongs to (the sound tails under it), and
+ * each line is followed by a storyteller's pause (core pauseAfter: a real wait after a question
+ * to the children, a held breath before a reveal, quick turns in banter).
  */
 export async function pitchClips(
   clips: Clips, ajjaPitch: number, kidPitch: number, cues: { id: SfxId; before: number }[] = [],
@@ -88,12 +88,11 @@ export async function pitchClips(
         end: cursor + duration,
         words: clip.words.map((wd) => ({ text: wd.text, start: cursor + (wd.start - clip.start) * scale, end: cursor + (wd.end - clip.start) * scale })),
       });
-      cursor += duration + GAP;
+      cursor += duration + (i < clips.length - 1 ? pauseAfter(clip, clips[i + 1]) : 0);
     }
     place(clips.length);
   } finally {
     await ctx.close();
   }
-  const trailing = cues.some((c) => c.before >= clips.length);
-  return { clips: out, duration: trailing ? cursor : cursor - GAP, cues: timed };
+  return { clips: out, duration: cursor, cues: timed };
 }

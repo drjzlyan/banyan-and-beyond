@@ -25,6 +25,8 @@ export function ChapterCard(props: {
     clipDurations: clips.map((c) => ({ speaker: c.speaker, duration: c.duration })),
     ajjaPitch: voices.ajjaPitch, kidPitch: voices.kidPitch, finalChapter: row.idx === 7,
   }), [row.spoken, row.idx, clips, voices.ajjaPitch, voices.kidPitch]);
+  // storytelling gaps show as chips below, not again as warning lines
+  const warnings = a.warnings.filter((w) => !w.startsWith("storytelling:"));
   const voiced = isChapterVoiced(row.status);
   // script rows in order; sound cues sit between spoken lines, and clips index spoken lines only
   const rows = (() => {
@@ -68,10 +70,16 @@ export function ChapterCard(props: {
             <div className="stat"><b>{a.nightsToVoice}</b><span>nights to voice ({a.ttsChars} chars)</span></div>
           </div>
           <div className="bar" aria-label="voicing progress"><i style={{ width: `${a.lines ? (clips.length / a.lines) * 100 : 0}%` }} /></div>
-          {(a.problems.length > 0 || a.warnings.length > 0 || oldVoices.length > 0) && (
+          {a.craft.length > 0 && (
+            <div className="row small" style={{ marginTop: 10, flexWrap: "wrap", gap: 6 }} aria-label="storytelling checklist">
+              <span className="muted">Storytelling:</span>
+              {a.craft.map((c) => <span key={c.label} className={`pill ${c.ok ? "ok" : "warn"}`} title={c.hint}>{c.ok ? "✓" : "✗"} {c.label}</span>)}
+            </div>
+          )}
+          {(a.problems.length > 0 || warnings.length > 0 || oldVoices.length > 0) && (
             <ul className="small" style={{ margin: "10px 0 0", paddingLeft: 18 }}>
               {a.problems.map((p) => <li key={p} style={{ color: "var(--bad)" }}>{p}</li>)}
-              {a.warnings.map((w) => <li key={w} style={{ color: "var(--warn)" }}>{w}</li>)}
+              {warnings.map((w) => <li key={w} style={{ color: "var(--warn)" }}>{w}</li>)}
               {oldVoices.length > 0 && <li style={{ color: "var(--warn)" }}>voiced with {oldVoices.join(", ")}, which isn't a current voice; use Re-voice to match</li>}
             </ul>
           )}

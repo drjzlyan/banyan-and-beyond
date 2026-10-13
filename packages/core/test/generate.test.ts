@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildOutline } from "../src/selection.ts";
 import { themeById } from "../src/themes.ts";
-import { generateChapter, MAX_CHAPTER_WORDS, MIN_CHAPTER_WORDS } from "../src/generate.ts";
+import { buildChapterMessages, generateChapter, MAX_CHAPTER_WORDS, MIN_CHAPTER_WORDS, storySoFar } from "../src/generate.ts";
 import type { AiRunner } from "../src/ai.ts";
 
 const outline = buildOutline(themeById("kindness")!, "village-story");
@@ -44,6 +44,23 @@ describe("generateChapter (two halves)", () => {
     expect(secondInput.messages.map((m) => m.content).join(" ")).toMatch(/Do not mention tomorrow/);
     const lastInput = (ai as ReturnType<typeof vi.fn>).mock.calls[2][1] as { messages: { content: string }[] };
     expect(lastInput.messages.map((m) => m.content).join(" ")).toMatch(/LAST line, and only your last line/);
+  });
+
+  it("ends on a cliffhanger, not 'tomorrow', and carries the story across chapters", () => {
+    const story = storySoFar(
+      "AJJA: Namaste little friends, come sit with me under the old banyan tree.\nAJJA: Meena had a red kite she loved.\nSFX: wind\nKID: Did it fly high?",
+      "AJJA: The box began to shake.\nKID: What was inside, Ajja?\nAJJA: And then... guess what happened?",
+    );
+    expect(story.opening).toEqual(["AJJA: Meena had a red kite she loved.", "KID: Did it fly high?"]);
+    expect(story.previousEnding?.at(-1)).toBe("AJJA: And then... guess what happened?");
+    const last = buildChapterMessages(outline, 3, undefined, ["AJJA: x"], { index: 2, count: 3 }, story).map((m) => m.content).join(" ");
+    expect(last).toMatch(/cliffhanger/);
+    expect(last).toMatch(/never say tomorrow/);
+    expect(last).toMatch(/Meena had a red kite/); // same main characters
+    expect(last).not.toMatch(/FIRST lines must answer it/); // only the chapter's first part picks up the cliffhanger
+    const opening = buildChapterMessages(outline, 3, undefined, undefined, { index: 0, count: 3 }, story).map((m) => m.content).join(" ");
+    expect(opening).toMatch(/FIRST lines must answer it straight away[\s\S]*guess what happened/);
+    expect(buildChapterMessages(outline, 0).map((m) => m.content).join(" ")).toMatch(/Start with a surprise in the first two lines/);
   });
 
   it("appends the outro on the final chapter", async () => {

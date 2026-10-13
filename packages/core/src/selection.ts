@@ -26,16 +26,23 @@ export function buildEpisodeTitle(theme: Theme, kind: StoryKind): string {
   return `The Banyan ${kindWord} of ${theme.valueWord}`;
 }
 
+/**
+ * One through-line for the whole episode: a child's small wish or problem set up in chapter 1,
+ * pushed further every chapter, a gentle low point in chapter 6 and a happy, surprising fix in
+ * chapter 7, so viewers keep watching to find out how it ends. The chapters play back to back in
+ * one video, so each beat also hands the next one a reason to keep listening.
+ */
 export function outlineBeats(theme: Theme): string[] {
+  const v = theme.valueWord.toLowerCase();
   return [
-    `Ajja welcomes the children and wonders aloud about ${theme.valueWord.toLowerCase()}.`,
-    `A small event in the village shows what happens without ${theme.valueWord.toLowerCase()}.`,
-    `The children meet a neighbour facing a gentle dilemma about ${theme.valueWord.toLowerCase()}.`,
-    `Ajja tells an old tale that shines light on ${theme.valueWord.toLowerCase()}.`,
-    `The children try a small brave act of ${theme.valueWord.toLowerCase()} themselves.`,
-    `Something goes a little wrong and everyone must make amends.`,
-    `The village gathers and celebrates the lesson of ${theme.valueWord.toLowerCase()}.`,
-    `Ajja closes with the moral: ${theme.moral}`,
+    `Meet the main child of this story and ONE small wish or problem the whole story is about (a lost kite, a promise to keep, a broken pot). It quietly touches on ${v}.`,
+    `Chasing that wish, the main child makes a small mistake that shows what happens without ${v}. The wish looks harder now.`,
+    `A neighbour with a gentle dilemma about ${v} crosses the main child's path and gives a clue about the wish.`,
+    `Ajja tells a short old tale inside the story, about animals or a king, that gives the main child an idea about ${v}.`,
+    `The main child tries a small brave act of ${v}. It goes wrong twice before it starts to work.`,
+    `The lowest moment: the wish seems lost and someone is sad. The main child must choose ${v} even though it is hard.`,
+    `The main child chooses ${v} and makes amends; the village helps and the wish comes true in a surprising way.`,
+    `Everyone celebrates together and Ajja gently closes the story. The moral: ${theme.moral}`,
   ];
 }
 

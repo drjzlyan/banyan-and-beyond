@@ -18,6 +18,13 @@ describe("selection", () => {
     expect(o.chapters).toHaveLength(8);
     expect(o.title).toContain("Honesty");
   });
+  it("threads one wish or problem through the episode, with a low point before the happy end", () => {
+    const o = buildOutline(themeById("honesty")!, "folk-tale");
+    expect(o.chapters[0]!.beat).toMatch(/ONE small wish or problem/);
+    expect(o.chapters.slice(1, 7).every((c) => /main child/.test(c.beat))).toBe(true);
+    expect(o.chapters[5]!.beat).toMatch(/lowest moment/);
+    expect(o.chapters[7]!.beat).toMatch(/moral/);
+  });
 });
 
 describe("story validator", () => {

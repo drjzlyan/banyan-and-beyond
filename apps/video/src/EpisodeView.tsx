@@ -1,4 +1,4 @@
-import { CHAPTER_VIDEO_BITRATE, DEFAULT_VOICE_SETTINGS, TARGET_EPISODE_SECONDS, sfxCues, MAX_CHAPTER_VIDEO_BYTES, analyzeChapter, isChapterVoiced, type PreparedClip, type VoiceSettings } from "@banyan/core";
+import { CHAPTER_VIDEO_BITRATE, DEFAULT_VOICE_SETTINGS, TARGET_EPISODE_SECONDS, chapterRole, sfxCues, withBookends, MAX_CHAPTER_VIDEO_BYTES, analyzeChapter, isChapterVoiced, type PreparedClip, type VoiceSettings } from "@banyan/core";
 import { renderMediaOnWeb, renderStillOnWeb } from "@remotion/web-renderer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Player } from "@remotion/player";
@@ -7,6 +7,7 @@ import { ChapterCard } from "./ChapterCard.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
 import { ApiError, api, putFile, type ChapterRow, type EpisodeDetail, type EpisodeRow } from "./api.ts";
 import { FPS, mouthEnvelope, pitchClips } from "./audio.ts";
+import { JINGLE_SECONDS, jingleUrl } from "./jingle.ts";
 import { AMBIENCE_SECONDS, SFX_SECONDS, ambienceUrl, sfxUrl } from "./sfx.ts";
 import { assembleEpisode, resumableUpload, uploadThumbnail, type UploadSession } from "./publish.ts";
 import { Note, StatusPill, fmtMin, useNote } from "./ui.tsx";
@@ -80,13 +81,22 @@ export function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) 
     const stored = JSON.parse(row.clips_json || "[]") as PreparedClip[];
     if (!isChapterVoiced(row.status) || !stored.length) throw new Error("not fully voiced yet — the nightly cron is still working");
     const pitched = await pitchClips(stored, voices.ajjaPitch, voices.kidPitch, sfxCues(row.spoken));
-    const mouth = await mouthEnvelope(pitched.clips, pitched.duration);
-    const cues = await Promise.all(pitched.cues.map(async (c) => ({ ...c, url: await sfxUrl(c.id), seconds: SFX_SECONDS[c.id] })));
+    // bookends: brand jingle (chapter 1) or sting before the first line; cliffhanger room or the lesson + outro after the last
+    const count = fresh.length || 8;
+    const role = chapterRole(n, count);
+    const timed = withBookends(pitched.clips, pitched.cues, pitched.duration, role);
+    const mouth = await mouthEnvelope(timed.clips, timed.duration);
+    const cues = await Promise.all(timed.cues.map(async (c) => ({ ...c, url: await sfxUrl(c.id), seconds: SFX_SECONDS[c.id] })));
+    const cut = role === "first" ? "intro" : "sting";
     const props: BanyanVideoProps = {
-      title: row.title, episodeTitle: detail?.title, chapterNo: n + 1, themeColor, moral,
-      clips: pitched.clips, duration: pitched.duration, mouth, cues, ambienceUrl: await ambienceUrl(), ambienceSeconds: AMBIENCE_SECONDS,
+      title: row.title, episodeTitle: detail?.title, chapterNo: n + 1, chapterCount: count, themeColor, moral,
+      clips: timed.clips, duration: timed.duration, mouth, cues, ambienceUrl: await ambienceUrl(), ambienceSeconds: AMBIENCE_SECONDS,
+      role, intro: timed.intro, outro: timed.outro,
+      jingleUrl: await jingleUrl(cut), jingleSeconds: JINGLE_SECONDS[cut],
+      ...(role === "final" ? { outroJingleUrl: await jingleUrl("outro"), outroJingleSeconds: JINGLE_SECONDS.outro } : {}),
     };
-    return { props, frames: Math.ceil(pitched.duration * FPS) + 20 };
+    // frames (and so x-video-duration and the YouTube chapter stamps) include the bookends
+    return { props, frames: Math.ceil(timed.duration * FPS) };
   }
 
   async function previewChapter(n: number) {

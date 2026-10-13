@@ -20,7 +20,7 @@ export const MIN_SHOT_BEFORE_CUE = 2;
 export const CLOSE_UP_MIN_LINE = { AJJA: 2.5, KID: 1.6 } as const;
 /** After this long on one shot, vary it on the next line. */
 export const MAX_SAME_SHOT = 12;
-/** The lesson card at the end sits on a wide shot. */
+/** Default wide ending for the lesson card; chapters pass their real outro (0 = none). */
 export const OUTRO_SECONDS = 8;
 /** Start a shot this much before its line so the camera is settling as the voice begins. */
 export const LEAD_SECONDS = 0.25;
@@ -31,9 +31,14 @@ type Cue = { at: number; seconds: number };
 const close = (speaker: Line["speaker"]): ShotKind => (speaker === "AJJA" ? "ajja" : "kid");
 const isClose = (k: ShotKind) => k === "ajja" || k === "kid";
 
-export function planShots(lines: Line[], cues: Cue[], duration: number): Shot[] {
+export function planShots(
+  lines: Line[], cues: Cue[], duration: number,
+  opts: { establishSeconds?: number; outroSeconds?: number } = {},
+): Shot[] {
   const shots: Shot[] = [{ at: 0, kind: "establish", cut: false }];
-  const outroAt = duration > 20 ? duration - OUTRO_SECONDS : Infinity;
+  const establish = opts.establishSeconds ?? ESTABLISH_SECONDS;
+  const outro = opts.outroSeconds ?? OUTRO_SECONDS;
+  const outroAt = duration > 20 && outro > 0 ? duration - outro : Infinity;
   const push = (at: number, kind: ShotKind, minHold: number) => {
     const cur = shots[shots.length - 1]!;
     if (kind === cur.kind || at - cur.at < minHold || at >= outroAt) return; // also keeps shots in time order
@@ -48,7 +53,7 @@ export function planShots(lines: Line[], cues: Cue[], duration: number): Shot[] 
   ].sort((a, b) => a.at - b.at || (a.cue ? -1 : 1));
 
   for (const e of events) {
-    if (e.at < ESTABLISH_SECONDS) continue;
+    if (e.at < establish) continue;
     if (e.cue) {
       // too soon after the last change: go wide as soon as allowed, while the cue still plays
       const at = Math.max(e.at, shots[shots.length - 1]!.at + MIN_SHOT_BEFORE_CUE);

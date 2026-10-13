@@ -1,6 +1,7 @@
 import {
   buildOutline,
   generateChapter,
+  storySoFar,
   isNeuronsExhausted,
   layoutLines,
   selectTheme,
@@ -62,7 +63,12 @@ export async function voiceNext(env: Env): Promise<string> {
       const ep = await env.DB.prepare("SELECT outline_json FROM episodes WHERE id = ?").bind(pending.episodeId).first<{ outline_json: string }>();
       if (!ep) throw new Error(`episode ${pending.episodeId} missing`);
       const outline = JSON.parse(ep.outline_json) as EpisodeOutline;
-      const gen = await generateChapter(ai, outline, pending.idx);
+      // continuity: chapter 1's opening (who/what the story is about) and the previous chapter's cliffhanger
+      const earlier = pending.idx > 0
+        ? (await env.DB.prepare("SELECT idx, spoken FROM chapters WHERE episode_id = ? AND idx IN (0, ?)").bind(pending.episodeId, pending.idx - 1).all<{ idx: number; spoken: string | null }>()).results
+        : [];
+      const story = storySoFar(earlier.find((r) => r.idx === 0)?.spoken, earlier.find((r) => r.idx === pending.idx - 1)?.spoken);
+      const gen = await generateChapter(ai, outline, pending.idx, { story });
       await env.DB.prepare("UPDATE chapters SET spoken = ?, clips_json = '[]', duration = 0, updated_at = ? WHERE episode_id = ? AND idx = ?")
         .bind(gen.spoken, now(), pending.episodeId, pending.idx).run();
       lines = gen.lines;

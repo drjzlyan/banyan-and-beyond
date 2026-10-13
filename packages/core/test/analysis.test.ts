@@ -20,11 +20,28 @@ describe("analyzeChapter", () => {
     expect(a.secondsEstimated).toBe(true);
     expect(a.problems).toEqual([]);
   });
-  it("flags more than one hook, and a short chapter", () => {
+  it("flags 'tomorrow' mid-episode, and a short chapter", () => {
     const a = analyzeChapter(script);
     expect(a.hookLines).toEqual([3, 6]);
-    expect(a.warnings.join(" ")).toMatch(/2 "tomorrow" hooks/);
+    expect(a.warnings.join(" ")).toMatch(/"tomorrow" on line 3, 6: the chapters play back to back/);
     expect(a.warnings.join(" ")).toMatch(/runs about/);
+    expect(analyzeChapter(script, { finalChapter: true }).warnings.join(" ")).not.toMatch(/tomorrow/);
+  });
+  it("checks the storytelling techniques the prompt asks for", () => {
+    const told = [
+      "AJJA: Whoosh! Something red flew over the mango tree.",
+      "KID: Is it a bird, Ajja? I think it is a parrot!",
+      "AJJA: No, it was Meena's kite, up up and away.",
+      "AJJA: Meena felt so sad. Her kite was up up and away.",
+      "KID: Poor Meena! I would be sad too.",
+      "AJJA: What would YOU do if your kite flew away? Hmm?",
+      "AJJA: Then Meena saw something shiny in the grass, and then... guess what?",
+    ].join("\n");
+    const a = analyzeChapter(told);
+    expect(a.craft.filter((c) => !c.ok).map((c) => c.label)).toEqual([]);
+    const flat = analyzeChapter(script);
+    expect(flat.craft.filter((c) => !c.ok).map((c) => c.label)).toEqual(expect.arrayContaining(["Question to viewers", "Kid guesses"]));
+    expect(flat.warnings.join(" ")).toMatch(/storytelling: no question to viewers/);
   });
   it("uses real clip durations and stretches them by pitch", () => {
     const clipDurations = [4, 3, 4, 4, 3, 4].map((d, i) => ({ speaker: i === 1 || i === 4 ? "KID" : "AJJA", duration: d }));
