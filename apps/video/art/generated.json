@@ -16,6 +16,14 @@
     "bytes": 264705,
     "file": "banyan.svg",
     "id": "gen_v_SbUqEfiqF90Jai",
+    "license": "commercial",
+    "edited": "pale canopy patches recoloured light green by hand",
+    "picked_by_owner": "2026-10-13"
+  },
+  "banyan.v0": {
+    "bytes": 264705,
+    "file": "candidates/banyan.v0.svg",
+    "id": "gen_v_SbUqEfiqF90Jai",
     "license": "commercial"
   },
   "bird": {
@@ -40,6 +48,25 @@
     "bytes": 39354,
     "file": "dholak.svg",
     "id": "gen_ejcB02jWnZcaBcWp",
+    "license": "commercial"
+  },
+  "dholak.drawn": {
+    "file": "candidates/dholak.drawn.svg",
+    "drawn_by_hand": true
+  },
+  "dholak.v10": {
+    "file": "candidates/dholak.v10.svg",
+    "id": "gen_90sUwNhyFPDQWaRR",
+    "license": "commercial"
+  },
+  "dholak.v7": {
+    "file": "candidates/dholak.v7.svg",
+    "id": "gen_OENKh1GFfnsb09iH",
+    "license": "commercial"
+  },
+  "dholak.v9": {
+    "file": "candidates/dholak.v9.svg",
+    "id": "gen_3Sky29zl9Jc7N5Nh",
     "license": "commercial"
   },
   "flute": {
@@ -74,20 +101,59 @@
     "license": "commercial"
   },
   "kite": {
-    "bytes": 26990,
     "file": "kite.svg",
+    "id": "gen_j52FYcuOwijBRU61",
+    "license": "commercial",
+    "picked_by_owner": "2026-10-13"
+  },
+  "kite.v1": {
+    "bytes": 26990,
+    "file": "candidates/kite.v1.svg",
     "id": "gen_GYnJHS5VUp-Srx8p",
     "license": "commercial"
   },
+  "kite.v3": {
+    "file": "candidates/kite.v3.svg",
+    "id": "gen_j52FYcuOwijBRU61",
+    "license": "commercial"
+  },
   "logo": {
-    "bytes": 38131,
     "file": "logo.svg",
+    "composed_from": [
+      "gen_j4UwQVMYaySGh7bg",
+      "gen_9MM4AQvVhXuIyr9U"
+    ],
+    "license": "commercial",
+    "edited": "logo.v6 book art (above its misspelled lettering) composed with logo.v3's lettering",
+    "picked_by_owner": "2026-10-13"
+  },
+  "logo.v1": {
+    "bytes": 38131,
+    "file": "candidates/logo.v1.svg",
     "id": "gen_yer1KIi_-K5C2xUb",
+    "license": "commercial"
+  },
+  "logo.v3": {
+    "file": "candidates/logo.v3.svg",
+    "id": "gen_9MM4AQvVhXuIyr9U",
+    "license": "commercial"
+  },
+  "logo.v6": {
+    "file": "candidates/logo.v6.svg",
+    "id": "gen_j4UwQVMYaySGh7bg",
     "license": "commercial"
   },
   "mango_tree": {
     "bytes": 148056,
     "file": "mango_tree.svg",
+    "id": "gen_7zedRqBDLG2zUPPX",
+    "license": "commercial",
+    "edited": "white gaps recoloured leaf green, mangoes ripened by hand",
+    "picked_by_owner": "2026-10-13"
+  },
+  "mango_tree.v1": {
+    "bytes": 148056,
+    "file": "candidates/mango_tree.v1.svg",
     "id": "gen_7zedRqBDLG2zUPPX",
     "license": "commercial"
   },
@@ -98,15 +164,39 @@
     "license": "commercial"
   },
   "parrot": {
-    "bytes": 14011,
     "file": "parrot.svg",
+    "id": "gen_9eFSdAlW_bhpDPtn",
+    "license": "commercial",
+    "edited": "cream background removed by hand",
+    "picked_by_owner": "2026-10-13"
+  },
+  "parrot.v1": {
+    "bytes": 14011,
+    "file": "candidates/parrot.v1.svg",
     "id": "gen_BGqwfW0iyKRJQnhD",
     "license": "commercial"
   },
+  "parrot.v3": {
+    "file": "candidates/parrot.v3.svg",
+    "id": "gen_9eFSdAlW_bhpDPtn",
+    "license": "commercial"
+  },
   "peacock": {
-    "bytes": 37558,
     "file": "peacock.svg",
+    "id": "gen_-BevMIhCaYfLtEcX",
+    "license": "commercial",
+    "edited": "ground shadow removed by hand",
+    "picked_by_owner": "2026-10-13"
+  },
+  "peacock.v1": {
+    "bytes": 37558,
+    "file": "candidates/peacock.v1.svg",
     "id": "gen_TtJ_GmceGsuj6dzb",
+    "license": "commercial"
+  },
+  "peacock.v2": {
+    "file": "candidates/peacock.v2.svg",
+    "id": "gen_-BevMIhCaYfLtEcX",
     "license": "commercial"
   },
   "puppy": {

@@ -250,3 +250,72 @@ export function jingleUrl(cut: JingleCut, v: JingleVariant = JINGLE_VARIANT): Pr
   }
   return cache.get(key)!;
 }
+
+// ---------- the story bed and little interface sounds, from the same instruments ----------
+
+/** Loop length of the quiet music bed that sits under the story. */
+export const BED_SECONDS = 24;
+
+/**
+ * A gentle bed in the jingle's key: tanpura drone, slow santoor arpeggios and, once per loop, the
+ * brand motif on a far-away flute — so the tune keeps living under the story without competing
+ * with the voices (the video ducks it further while anyone speaks).
+ */
+function arrangeBed(ctx: Ctx, out: AudioNode) {
+  // drone held at a steady level the whole loop, so loop seams don't dip
+  const lp = ctx.createBiquadFilter(), g = ctx.createGain();
+  lp.type = "lowpass"; lp.frequency.value = 900;
+  g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.035, 0.05);
+  g.gain.setValueAtTime(0.035, BED_SECONDS - 0.05); g.gain.linearRampToValueAtTime(0, BED_SECONDS);
+  lp.connect(g).connect(out);
+  for (const [f, d] of [[SA / 2, 0], [hz(7) / 2, 0.7], [SA, 1.4]] as const) {
+    const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = d * 3;
+    const og = ctx.createGain(); og.gain.value = 0.35; o.connect(og).connect(lp); o.start(0); o.stop(BED_SECONDS);
+  }
+  // eight bars of four plucks: Sa, Dha, Ga, Pa colours, rising then settling
+  const roots = [0, -3, 4, 7, 0, 9, 4, 2];
+  roots.forEach((root, bar) => [0, 7, 12, 16].forEach((n, k) => pluck(ctx, out, bar * 3 + k * 0.75 + 0.2, hz(root + n - 12), k === 0 ? 0.05 : 0.035)));
+  // the motif, far away, once per loop
+  SCORES[JINGLE_VARIANT].a.forEach((n, i) => flute(ctx, out, 12.2 + n.t * 0.75, n.d * 0.75 * 0.9, hz(n.n), null, 500 + i, 0.06));
+}
+
+export type UiSound = "pop" | "sparkle" | "whoosh";
+export const UI_SECONDS: Record<UiSound, number> = { pop: 0.35, sparkle: 1.2, whoosh: 0.9 };
+
+function arrangeUi(ctx: Ctx, out: AudioNode, s: UiSound) {
+  if (s === "pop") {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(380, 0); o.frequency.exponentialRampToValueAtTime(980, 0.07);
+    g.gain.setValueAtTime(0.0001, 0); g.gain.exponentialRampToValueAtTime(0.25, 0.01); g.gain.exponentialRampToValueAtTime(0.0001, 0.18);
+    o.connect(g).connect(out); o.start(0); o.stop(0.2);
+    tabla(ctx, out, 0, "ka", 900, 0.6);
+  } else if (s === "sparkle") {
+    sparkle(ctx, out, 0, 0.07);
+  } else {
+    const n = noiseSrc(ctx, 0.9, 77), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+    bp.type = "bandpass"; bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(400, 0); bp.frequency.exponentialRampToValueAtTime(2200, 0.6);
+    env(g, 0, [[0.35, 0.12], [0.85, 0.0001]]);
+    n.connect(bp).connect(g).connect(out); n.start(0); n.stop(0.9);
+  }
+}
+
+async function renderClip(seconds: number, draw: (ctx: Ctx, out: AudioNode) => void, gain = 0.85): Promise<string> {
+  const ctx = new OfflineAudioContext(1, Math.ceil(seconds * SR), SR);
+  const master = ctx.createGain(); master.gain.value = gain; master.connect(ctx.destination);
+  draw(ctx, master);
+  return URL.createObjectURL(wavBlob(await ctx.startRendering()));
+}
+
+/** Blob URL of the looping story bed. */
+export function bedUrl(): Promise<string> {
+  if (!cache.has("bed")) cache.set("bed", renderClip(BED_SECONDS, arrangeBed));
+  return cache.get("bed")!;
+}
+
+/** Blob URL of one interface sound (pop for sound words, sparkle for the lesson, whoosh for the closing iris). */
+export function uiSoundUrl(s: UiSound): Promise<string> {
+  const key = `ui:${s}`;
+  if (!cache.has(key)) cache.set(key, renderClip(UI_SECONDS[s], (ctx, out) => arrangeUi(ctx, out, s)));
+  return cache.get(key)!;
+}

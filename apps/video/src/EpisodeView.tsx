@@ -7,7 +7,7 @@ import { ChapterCard } from "./ChapterCard.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
 import { ApiError, api, putFile, type ChapterRow, type EpisodeDetail, type EpisodeRow } from "./api.ts";
 import { FPS, mouthEnvelope, pitchClips } from "./audio.ts";
-import { JINGLE_SECONDS, jingleUrl } from "./jingle.ts";
+import { BED_SECONDS, JINGLE_SECONDS, bedUrl, jingleUrl, uiSoundUrl } from "./jingle.ts";
 import { AMBIENCE_SECONDS, SFX_SECONDS, ambienceUrl, sfxUrl } from "./sfx.ts";
 import { assembleEpisode, resumableUpload, uploadThumbnail, type UploadSession } from "./publish.ts";
 import { Note, StatusPill, fmtMin, useNote } from "./ui.tsx";
@@ -94,6 +94,8 @@ export function EpisodeView({ id, onBack }: { id: string; onBack: () => void }) 
       role, intro: timed.intro, outro: timed.outro,
       jingleUrl: await jingleUrl(cut), jingleSeconds: JINGLE_SECONDS[cut],
       ...(role === "final" ? { outroJingleUrl: await jingleUrl("outro"), outroJingleSeconds: JINGLE_SECONDS.outro } : {}),
+      bedUrl: await bedUrl(), bedSeconds: BED_SECONDS,
+      ui: { pop: await uiSoundUrl("pop"), sparkle: await uiSoundUrl("sparkle"), whoosh: await uiSoundUrl("whoosh") },
     };
     // frames (and so x-video-duration and the YouTube chapter stamps) include the bookends
     return { props, frames: Math.ceil(timed.duration * FPS) };

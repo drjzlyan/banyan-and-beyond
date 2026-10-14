@@ -34,6 +34,11 @@ export type BanyanVideoProps = {
   jingleSeconds?: number;
   outroJingleUrl?: string | null;
   outroJingleSeconds?: number;
+  /** quiet looping music bed under the story (ducked while anyone speaks) */
+  bedUrl?: string | null;
+  bedSeconds?: number;
+  /** little interface sounds: a pop for each sound word, a sparkle for the lesson, a whoosh as the iris closes */
+  ui?: { pop?: string; sparkle?: string; whoosh?: string } | null;
 };
 
 /** The comic "sound word" shown with each effect, so kids can read along with the sound. */
@@ -83,7 +88,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
   );
   // the sky moves from afternoon to night across the whole episode, so joined chapters flow on
   const count = props.chapterCount ?? 1;
-  const skyProgress = Math.min(1, ((props.chapterNo ?? 1) - 1 + progress) / count);
+  const skyProgress = props.chapterCount ? Math.min(1, ((props.chapterNo ?? 1) - 1 + progress) / count) : progress;
   const hits = jingleHits(role === "first" ? "intro" : "sting");
   const cueStart = (id: SfxId) => active.find((c) => c.id === id)?.at ?? 0;
 
@@ -159,31 +164,57 @@ export function BanyanVideo(props: BanyanVideoProps) {
         <Door level={level("knock")} time={time} />
       </svg>}
 
-      {/* sound words, comic style */}
-      {active.map((c, i) => (
-        <div key={`${c.id}${c.at}`} style={{
-          position: "absolute", left: 80 + ((i * 370 + Math.round(c.at * 53)) % 820), top: 70 + (i % 2) * 70,
-          transform: `scale(${0.6 + 0.4 * spring({ frame: frame - Math.round(c.at * FPS), fps: FPS, config: { damping: 9 } })}) rotate(${-6 + (i % 3) * 5}deg)`,
-          opacity: c.level, background: "#fff7d6", border: "5px solid #3b2a17", borderRadius: 26, padding: "6px 22px",
-          fontSize: 46, fontWeight: 800, color: "#c2410c", boxShadow: "6px 6px 0 #3b2a17",
-        }}>{SOUND_WORD[c.id]}</div>
-      ))}
-
-      {/* caption bubble: big, short, the spoken word lit up */}
-      {!showMoral && clip && (
-        <div style={{ position: "absolute", left: 120, right: 120, bottom: 26, display: "flex", justifyContent: "center" }}>
-          <div style={{
-            background: "rgba(255,251,240,0.95)", border: `5px solid ${clip.speaker === "KID" ? "#2563a8" : "#8a5a2b"}`, borderRadius: 28,
-            padding: "10px 26px 14px", fontSize: 44, lineHeight: 1.3, color: "#2c2318", textAlign: "center", maxWidth: 1040,
+      {/* sound words, comic style: a spiky burst pops in with overshoot, wobbles, and shrinks away */}
+      {active.map((c, i) => {
+        const pop = spring({ frame: frame - Math.round(c.at * FPS), fps: FPS, config: { damping: 8, stiffness: 170 } });
+        const wobble = Math.sin((time - c.at) * 9) * 3 * Math.max(0, 1 - (time - c.at) / 1.2);
+        return (
+          <div key={`${c.id}${c.at}`} style={{
+            position: "absolute", left: 90 + ((i * 370 + Math.round(c.at * 53)) % 800), top: 64 + (i % 2) * 70, zIndex: 5,
+            transform: `scale(${pop * (0.7 + 0.3 * c.level)}) rotate(${-6 + (i % 3) * 5 + wobble}deg)`, opacity: Math.min(1, c.level * 1.5),
           }}>
-            <span style={{ fontSize: 26, fontWeight: 800, color: clip.speaker === "KID" ? "#2563a8" : "#8a5a2b", marginRight: 12 }}>{clip.speaker === "KID" ? "Kid" : "Ajja"}</span>
-            {clip.words.map((w, i) => {
-              const lit = time >= w.start && time < w.end;
-              return <span key={i} style={{ background: lit ? "#f2c14e" : "transparent", borderRadius: 10, padding: "0 4px", fontWeight: lit ? 800 : 500 }}>{w.text} </span>;
-            })}
+            <svg viewBox="0 0 200 100" preserveAspectRatio="none" style={{ position: "absolute", left: -30, top: -26, width: "calc(100% + 60px)", height: "calc(100% + 52px)", overflow: "visible" }}>
+              <polygon points={Array.from({ length: 28 }).map((_, k) => { const a = (k / 28) * Math.PI * 2, r = k % 2 ? 0.78 : 1; return `${100 + Math.cos(a) * 100 * r},${50 + Math.sin(a) * 50 * r}`; }).join(" ")}
+                fill="#ffd23f" stroke="#3b2a17" strokeWidth={3} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            </svg>
+            <div style={{ position: "relative", background: "#fff7d6", border: "5px solid #3b2a17", borderRadius: 26, padding: "6px 22px",
+              fontSize: 46, fontWeight: 800, color: "#c2410c", boxShadow: "6px 6px 0 #3b2a17", whiteSpace: "nowrap" }}>{SOUND_WORD[c.id]}</div>
           </div>
-        </div>
-      )}
+        );
+      })}
+
+      {/* caption bubble: pops up with each line, a tail points at the speaker, the spoken word bounces */}
+      {!showMoral && clip && (() => {
+        const kid = clip.speaker === "KID";
+        const tone = kid ? "#2563a8" : "#8a5a2b";
+        const pop = spring({ frame: frame - Math.round(clip.start * FPS), fps: FPS, config: { damping: 13, stiffness: 190 } });
+        return (
+          <div style={{ position: "absolute", left: 120, right: 120, bottom: 26, display: "flex", justifyContent: "center", zIndex: 6 }}>
+            <div style={{ position: "relative", transformOrigin: kid ? "80% 100%" : "20% 100%",
+              transform: `translateY(${(1 - pop) * 26}px) scale(${0.92 + pop * 0.08})`, opacity: Math.min(1, pop * 1.6) }}>
+              {/* the tail is in the layout (not absolutely offset), so the renderer keeps it inside the bubble's box */}
+              <div style={{ display: "flex", justifyContent: kid ? "flex-end" : "flex-start", padding: "0 70px", marginBottom: -7, position: "relative", zIndex: 1 }}>
+                <svg width={44} height={30} viewBox="0 0 44 30">
+                  <path d={kid ? "M4 30 L34 3 L40 30 Z" : "M40 30 L10 3 L4 30 Z"} fill="#fffbf0" stroke={tone} strokeWidth={5} strokeLinejoin="round" />
+                  <rect x={0} y={26} width={44} height={6} fill="#fffbf0" />
+                </svg>
+              </div>
+              <div style={{
+                position: "relative", background: "rgba(255,251,240,0.97)", border: `5px solid ${tone}`, borderRadius: 28,
+                padding: "10px 26px 14px", fontSize: 44, lineHeight: 1.3, color: "#2c2318", textAlign: "center", maxWidth: 1040, boxShadow: "0 6px 0 rgba(59,42,23,0.18)",
+              }}>
+                <span style={{ fontSize: 26, fontWeight: 800, color: tone, marginRight: 12 }}>{kid ? "Kid" : "Ajja"}</span>
+                {clip.words.map((w, i) => {
+                  const lit = time >= w.start && time < w.end;
+                  const b = lit ? Math.sin(Math.min(1, (time - w.start) / 0.18) * Math.PI) : 0;
+                  return <span key={i} style={{ display: "inline-block", background: lit ? "#f2c14e" : "transparent", borderRadius: 10, padding: "0 4px", marginRight: 10,
+                    fontWeight: lit ? 800 : 500, transform: `translateY(${-b * 5}px) scale(${1 + b * 0.06})` }}>{w.text}</span>;
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* storybook iris: opens on the scene, closes at the very end */}
       {storybook && <Iris r={interpolate(time, [0.3, 1.5], [0, 760], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.5, 0, 0.2, 1) })} />}
@@ -202,13 +233,14 @@ export function BanyanVideo(props: BanyanVideoProps) {
         const lift = interpolate(ribbon, [0, 1], [0, first ? -70 : -55]);
         return (
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", opacity: fadeOut }}>
-            <div style={{ position: "absolute", left: "50%", top: "50%", width: first ? 560 : 440,
+            <div style={{ position: "absolute", left: "50%", top: "50%",
               transform: `translate(-50%, -50%) translateY(${lift}px) scale(${pop(hits.words[0]! - 0.15, 11) * (1 + bump * 0.05 + land * 0.08)}) rotate(${-2 + bump * 2}deg)`,
               background: "#fff7d6", border: "6px solid #3b2a17", borderRadius: 36, padding: first ? "26px 40px" : "18px 32px", boxShadow: "10px 10px 0 #3b2a17" }}>
-              {ART.logo && <Img src={ART.logo} style={{ width: "100%", display: "block" }} />}
+              {/* sized by height so a wide or a tall logo both fit the card */}
+              {ART.logo && <Img src={ART.logo} style={{ height: first ? 320 : 230, maxWidth: first ? 560 : 420, objectFit: "contain", display: "block" }} />}
             </div>
             {ribbon > 0.01 && (
-              <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, ${first ? 110 : 85}px) scale(${ribbon})`,
+              <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, ${first ? 150 : 115}px) scale(${ribbon})`,
                 background: "#2f6b3a", border: "5px solid #3b2a17", borderRadius: 24, padding: "8px 34px 12px", textAlign: "center", boxShadow: "8px 8px 0 #3b2a17", whiteSpace: "nowrap" }}>
                 {first && <div style={{ fontSize: 28, color: "#fff4c2", fontWeight: 700 }}>{props.episodeTitle ?? "Banyan and Beyond"}</div>}
                 <div style={{ fontSize: first ? 60 : 54, color: "#ffffff", fontWeight: 800, lineHeight: 1.1 }}>{props.chapterNo ? `Chapter ${props.chapterNo}` : props.title}</div>
@@ -271,10 +303,38 @@ export function BanyanVideo(props: BanyanVideoProps) {
           <Audio src={props.outroJingleUrl} volume={0.65} />
         </Sequence>
       )}
+      {/* the music bed runs from the end of the intro to the outro, dipping under every line */}
+      {props.bedUrl && (() => {
+        const loop = props.bedSeconds ?? 24;
+        const from = intro, to = role === "final" ? props.duration - outro : props.duration;
+        return Array.from({ length: Math.max(0, Math.ceil((to - from) / loop)) }).map((_, i) => {
+          const at = from + i * loop;
+          return (
+            <Sequence key={`bed${i}`} from={Math.round(at * FPS)} durationInFrames={Math.round(Math.min(loop, to - at) * FPS)}>
+              <Audio src={props.bedUrl!} volume={(f) => bedVolume(at + f / FPS, props.clips, from, to)} />
+            </Sequence>
+          );
+        });
+      })()}
+      {props.ui?.pop && cues.map((c, i) => (
+        <Sequence key={`pop${i}`} from={Math.round(c.at * FPS)} durationInFrames={Math.round(0.35 * FPS)}>
+          <Audio src={props.ui!.pop!} volume={0.5} />
+        </Sequence>
+      ))}
+      {props.ui?.sparkle && role === "final" && (
+        <Sequence from={Math.round((props.duration - outro) * FPS)} durationInFrames={Math.round(1.2 * FPS)}>
+          <Audio src={props.ui.sparkle} volume={0.6} />
+        </Sequence>
+      )}
+      {props.ui?.whoosh && role !== "final" && props.duration > 20 && (
+        <Sequence from={Math.round((props.duration - 1.4) * FPS)} durationInFrames={Math.round(0.9 * FPS)}>
+          <Audio src={props.ui.whoosh} volume={0.5} />
+        </Sequence>
+      )}
       {/* the evening bed starts once the jingle has had the stage */}
       {props.ambienceUrl && Array.from({ length: Math.ceil(Math.max(0, props.duration - intro) / (props.ambienceSeconds ?? 16)) }).map((_, i) => (
         <Sequence key={`amb${i}`} from={Math.round((intro + i * (props.ambienceSeconds ?? 16)) * FPS)} durationInFrames={Math.round((props.ambienceSeconds ?? 16) * FPS)}>
-          <Audio src={props.ambienceUrl!} volume={0.22} />
+          <Audio src={props.ambienceUrl!} volume={0.18} />
         </Sequence>
       ))}
     </AbsoluteFill>
@@ -519,6 +579,20 @@ function Door({ level, time }: { level: number; time: number }) {
       <circle cx={72} cy={80} r={6} fill="#f2c14e" />
     </g>
   );
+}
+
+/** Music bed level: fades in after the intro, sits low under speech, lifts a little in the gaps, fades out at the end. */
+function bedVolume(t: number, clips: PreparedClip[], from: number, to: number): number {
+  const ramp = (x: number) => Math.max(0, Math.min(1, x));
+  const edge = Math.min(ramp((t - from) / 1.5), ramp((to - t) / 1.5));
+  // distance to the nearest line, in seconds (0 while speaking)
+  let d = Infinity;
+  for (const c of clips) {
+    if (t >= c.start && t < c.end) { d = 0; break; }
+    d = Math.min(d, Math.abs(t - c.start), Math.abs(t - c.end));
+  }
+  const gap = ramp((d - 0.15) / 0.5);
+  return edge * (0.16 + 0.16 * gap);
 }
 
 /** A black frame with a round hole of radius r, the classic storybook iris. */

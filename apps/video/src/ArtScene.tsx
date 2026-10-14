@@ -333,7 +333,7 @@ export function ArtScene({ time, progress, clips, shots, speaker, open, excited,
           {/* soft contact shadows ground everything */}
           <ellipse cx={640} cy={GROUND + 26} rx={250} ry={26} fill="url(#shadow)" opacity={0.6} />
           <ellipse cx={370} cy={GROUND + 93} rx={170} ry={22} fill="url(#shadow)" opacity={0.7} />
-          <ellipse cx={900} cy={GROUND + 98} rx={150} ry={20} fill="url(#shadow)" opacity={0.7} />
+          <ellipse cx={900} cy={GROUND + 98} rx={150 * (1 - hop / 80)} ry={20 * (1 - hop / 80)} fill="url(#shadow)" opacity={0.7 - hop / 60} />
         </svg>
         <Piece id="banyan" x={640} bottom={GROUND + 30} w={740} filter={dim} transform={`rotate(${sway(0, 0.25)}deg) skewX(${sway(1, 0.3)}deg)`} />
         <Piece id="parrot" x={810} bottom={300} w={68} filter={dim}
@@ -343,11 +343,22 @@ export function ArtScene({ time, progress, clips, shots, speaker, open, excited,
           const t = (time + 6) % 40;
           return t > 14 ? null : <Piece id="peacock" x={-120 + t * 110} bottom={GROUND + 40} w={150} filter={dim} transform={`translateY(${-Math.abs(Math.sin(t * 5)) * 5}px)`} />;
         })()}
+        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", inset: 0, overflow: "visible", zIndex: 1 }}>
+          {[0, 1, 2].map((i) => {
+            const cycle = 11 + i * 3, t = ((time + i * 4.3) % cycle) / 5.5; // falls for 5.5 s each cycle
+            if (t > 1) return null;
+            const x = 470 + i * 150 + Math.sin(t * Math.PI * 3 + i) * 40 + t * 60, y = 190 + t * 380;
+            return <path key={i} d="M0 -9 C 8 -6 8 6 0 10 C -8 6 -8 -6 0 -9 Z M0 -9 L0 10" fill={interpolateColors(night, [0, 1], ["#6fae3f", "#2e4a26"])}
+              stroke="#3b5d22" strokeWidth={1.2} opacity={Math.min(1, (1 - t) * 4)} transform={`translate(${x} ${y}) rotate(${Math.sin(t * 9 + i) * 60})`} />;
+          })}
+        </svg>
         <Piece id="butterfly" x={300 + Math.sin(time * 0.4) * 200} bottom={330 + Math.sin(time * 0.9) * 60} w={44}
           opacity={1 - night * 1.4} transform={`rotate(${Math.sin(time * 1.3) * 12}deg) scaleX(${0.45 + Math.abs(Math.sin(time * 9)) * 0.55})`} />
 
         <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", inset: 0, overflow: "visible", zIndex: 3 }}>
           <defs>{HALO("halo-diya", "#ffd27a")}</defs>
+          <Smoke x={590} y={GROUND + 52 - 48} time={time} />
+          <Smoke x={690} y={GROUND + 52 - 48} time={time + 1.7} />
           <Diya x={590} y={GROUND + 52} time={time} glow={night} />
           <Diya x={690} y={GROUND + 52} time={time + 0.4} glow={night} />
           {level("footsteps") > 0 && Array.from({ length: 6 }).map((_, i) =>
@@ -369,6 +380,9 @@ export function ArtScene({ time, progress, clips, shots, speaker, open, excited,
         </svg>
       </Layer>
 
+      {/* drifting pollen by day, fireflies by night: slow, soft, never busy */}
+      <Motes time={time} night={night} />
+
       {/* sound-effect visuals in screen space, so they read in any shot */}
       <Fx level={level} cueStart={cueStart} time={time} />
 
@@ -380,6 +394,40 @@ export function ArtScene({ time, progress, clips, shots, speaker, open, excited,
         <rect width={W} height={H} fill="url(#vig)" opacity={0.6 + night * 0.4} />
       </svg>
     </div>
+  );
+}
+
+/** Thin wisps rising from the diya flames, fading as they curl. */
+function Smoke({ x, y, time }: { x: number; y: number; time: number }) {
+  return (
+    <g>
+      {[0, 1].map((i) => {
+        const t = (time * 0.45 + i * 0.5) % 1;
+        const dx = Math.sin(t * Math.PI * 2 + i) * 8;
+        return <path key={i} d={`M ${x} ${y} q ${6 + dx} -12 ${dx} -24 t ${-dx} -22`} transform={`translate(0 ${-t * 30})`}
+          stroke="#e9e1d4" strokeWidth={3 - t * 2} fill="none" strokeLinecap="round" opacity={0.35 * (1 - t)} />;
+      })}
+    </g>
+  );
+}
+
+/** Ambient motes in screen space: warm pollen drifting in the day, blinking fireflies after dark. */
+function Motes({ time, night }: { time: number; night: number }) {
+  const n = 12;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none" }}>
+      {Array.from({ length: n }).map((_, i) => {
+        const sx = random(`mx${i}`), sy = random(`my${i}`), sp = 0.4 + random(`ms${i}`) * 0.6;
+        const x = ((sx * W + time * 14 * sp) % (W + 40)) - 20 + Math.sin(time * 0.6 * sp + i) * 30;
+        const y = 120 + sy * 420 + Math.sin(time * 0.8 * sp + i * 2) * 24;
+        const blink = night > 0.5 ? (Math.sin(time * 2.2 + i * 1.7) + 1) / 2 : 1;
+        const fire = Math.max(0, (night - 0.45) * 2);
+        return <g key={i}>
+          <circle cx={x} cy={y} r={2.4 + random(`mr${i}`) * 1.6} fill={fire > 0.5 ? "#fff27a" : "#fff6d6"} opacity={(0.25 + fire * 0.6) * blink} />
+          {fire > 0 && <circle cx={x} cy={y} r={9} fill="#fff27a" opacity={0.12 * fire * blink} />}
+        </g>;
+      })}
+    </svg>
   );
 }
 

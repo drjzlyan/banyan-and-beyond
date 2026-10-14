@@ -123,6 +123,28 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
   - **Episode through-line** (`outlineBeats`): one child's small wish or problem is set up in chapter 1. A mistake in chapter 2, a clue in 3, a tale inside the tale in 4, three tries in 5, the lowest moment in 6, the surprising fix in 7, then celebration and the moral in 8. This applies to **new** episodes; existing outlines in D1 keep their old beats.
   - **Studio checklist**: each chapter card shows the storytelling checks (opening hook, question to viewers, repeated chorus, feelings, Kid guesses, cliffhanger) as ✓/✗ chips, so the owner can see whether the model followed the prompt. **Untested against the live model**: use New script on one chapter and look at the chips.
   - Every chapter needs a re-render for the jingle, stings and bookends; chapters scripted before this need New script for the new storytelling.
+- **2026-10-13/14 (art audit + polish, synced to the Mac)** — Every SVG re-checked at full size; the owner picked replacements on the private **Banyan Art Review** page (https://claude.ai/artifact/HPsoAcsDUzrMCSxU5WL6V5; choices in its database collection `verdicts`).
+  - **Applied:**
+    - parrot: Inspyry `gen_9eFSdAlW_bhpDPtn`, cream background removed
+    - peacock: `gen_-BevMIhCaYfLtEcX`, ground shadow removed
+    - banyan and mango tree: the originals with their white patches and gaps recoloured
+    - kite: `gen_j52FYcuOwijBRU61`, the red diamond
+    - logo: book art from `gen_j4UwQVMYaySGh7bg` composed with the correctly spelled lettering of `gen_9MM4AQvVhXuIyr9U`, since Inspyry kept misspelling the name
+  - **Dholak:** still awaiting a pick. Candidates are in `art/candidates/`: hand-drawn `dholak.drawn.svg` (recommended) plus Inspyry v7, v9 and v10, with shadows removed. Every pick is recorded in `art/generated.json`. Inspyry serves any past generation at `https://inspyry.com/v1/vectors/<id>/svg`.
+  - **Kid rig:** the neck cut in `rig.json` is narrowed (a stray shoulder fragment was showing).
+  - **Polish:**
+    - caption bubbles pop up per line, with a tail toward the speaker and the spoken word bouncing
+    - comic bursts behind sound words
+    - pollen by day and fireflies by night
+    - falling banyan leaves, diya smoke, and a hop-aware contact shadow
+    - the opening card sizes the logo by height
+  - **Sound:**
+    - a quiet looping music bed in the jingle's key, ducked under speech
+    - pop, sparkle and whoosh interface sounds
+    - ambience lowered to 0.18
+  - **Renderer finding:** content placed outside a transformed element's box is not drawn, so keep such parts in the layout.
+  - **History:** this round was first built in a cloud session whose commits could not be pushed. It was replayed on the Mac from the session transcript, with the art re-fetched from Inspyry by id, and the files match the cloud versions.
+
 ## 6. Deferred owner items (everything else is built)
 
 0. **Review + merge `fix/first-live-run`** — merging to `main` deploys. Re-render any chapter rendered before this change, so its `video_duration` gets recorded.
