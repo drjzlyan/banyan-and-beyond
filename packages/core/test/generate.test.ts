@@ -177,3 +177,48 @@ describe("forgiving fixes", () => {
     expect(dropBadCues(["SCENE: 1", "SFX: bark", "SFX: wind", "AJJA: Woof!", "SFX: slurp", "KID: Yum!"])).toEqual(["SCENE: 1", "SFX: bark", "AJJA: Woof!", "KID: Yum!"]);
   });
 });
+
+describe("story window fits the scene window (no valid scenes thrown away at the join)", () => {
+  it("six minimal scenes and eight maximal scenes both pass the joined checks", async () => {
+    const { MIN_SCENE_LINES, MAX_SCENE_LINES, MIN_SCENE_WORDS, MAX_SCENE_WORDS, SCENES_MAX } = await import("../src/generate.ts");
+    const { MAX_LINES_PER_CHAPTER } = await import("../src/story.ts");
+    expect(SCENES_MAX * MAX_SCENE_LINES + 2).toBeLessThanOrEqual(MAX_LINES_PER_CHAPTER);
+    for (const [count, lines, words] of [[6, MIN_SCENE_LINES, MIN_SCENE_WORDS], [8, MAX_SCENE_LINES, MAX_SCENE_WORDS]] as const) {
+      const plan = { ...PLAN, scenes: Array.from({ length: count }, (_, i) => ({ ...PLAN.scenes[i % 6]!, beat: `${words} ${i} ${PLAN.scenes[i % 6]!.beat}` })), mystery: { ...PLAN.mystery, payoffScene: 4 } };
+      const per = Math.floor(words / lines), extra = words - per * lines;
+      const ai = vi.fn<AiRunner>(async (_m, input) => {
+        const p = promptOf(input);
+        if (/Plan it as JSON/.test(p)) return json(plan);
+        const s = Number(p.match(/Write scene (\d+) now/)![1]);
+        const rows = [`SCENE: ${s}`];
+        for (let i = 0; i < lines; i++) rows.push(`${i === 3 ? "KID" : i % 2 ? "MEENA" : "AJJA"}: ${Array.from({ length: per + (i < extra ? 1 : 0) }, word).join(" ")}.`);
+        return json({ lines: rows });
+      });
+      const out = await generateStory(ai, outline, { plan: plan as StoryPlan, maxAttempts: 1 });
+      expect(out.lines.length).toBe(count * lines + 2);
+    }
+  });
+});
+
+describe("resuming a story across nights", () => {
+  it("saves each accepted scene and picks up after the last saved one", async () => {
+    const saved: string[][] = [];
+    let calls = 0;
+    const failAt3: AiRunner = async (_m, input) => {
+      const p = promptOf(input);
+      if (/Write scene 3 now/.test(p)) throw new Error("3036: neurons used up");
+      calls++;
+      return json({ lines: fakeScenes(p) });
+    };
+    await expect(generateStory(failAt3, outline, { plan: PLAN, onScene: async (rows) => { saved.push(rows); }, rethrow: (e) => /3036/.test(String(e)) })).rejects.toThrow(/3036/);
+    expect(calls).toBe(2);
+    const draft = saved.at(-1)!;
+    expect(sceneMarks(draft.join("\n")).map((s) => s.n)).toEqual([1, 2]);
+    // the next night: only scenes 3-6 are written
+    const ai = fakeAi();
+    const out = await generateStory(ai, outline, { plan: PLAN, draft });
+    expect(ai).toHaveBeenCalledTimes(4);
+    expect(promptOf(ai.mock.calls[0]![1])).toMatch(/Scenes 1 to 2 are ALREADY written[\s\S]*Write scene 3 now/);
+    expect(sceneMarks(out.spoken).map((s) => s.n)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+});

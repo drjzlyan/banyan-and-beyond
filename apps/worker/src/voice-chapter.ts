@@ -23,6 +23,8 @@ const newId = () => `e${Date.now().toString(36)}${Math.random().toString(36).sli
 
 /** Stories not yet posted (archived ones don't count). Two staggered in flight: one voicing while the other waits in the Studio. */
 const MAX_IN_FLIGHT = 2;
+/** Nights a story's writing may fail (for a reason other than neurons) before it is planned afresh. */
+const MAX_SCRIPT_FAILURES = 3;
 
 /**
  * The nightly engine (cron 22:00 UTC). One invocation advances the queue by one step:
@@ -70,17 +72,27 @@ export async function voiceNext(env: Env): Promise<string> {
     lines = null;
   }
   if (!lines) {
-    // plan, then write the scenes; neuron exhaustion pauses until tomorrow
+    // plan, then write the scenes one by one; each accepted scene is saved, so a neuron pause or a
+    // failing scene resumes the next night instead of starting over
+    const save = async () => {
+      await env.DB.prepare("UPDATE episodes SET outline_json = ?, title = ?, updated_at = ? WHERE id = ?")
+        .bind(JSON.stringify(outline), outline.title, now(), pending.episodeId).run();
+    };
     try {
       if (!outline.plan) {
-        // saved straight away, so a neuron pause while writing scenes does not throw the plan away
         outline.plan = (await planStory(ai, outline, { rethrow: isNeuronsExhausted })).plan;
         outline.title = outline.plan.title;
-        await env.DB.prepare("UPDATE episodes SET outline_json = ?, title = ?, updated_at = ? WHERE id = ?")
-          .bind(JSON.stringify(outline), outline.title, now(), pending.episodeId).run();
+        delete outline.draft;
+        await save();
         await env.DB.prepare("UPDATE chapters SET title = ? WHERE episode_id = ? AND idx = ?").bind(outline.title, pending.episodeId, pending.idx).run();
       }
-      const gen = await generateStory(ai, outline, { plan: outline.plan, rethrow: isNeuronsExhausted });
+      const gen = await generateStory(ai, outline, {
+        plan: outline.plan, draft: outline.draft, rethrow: isNeuronsExhausted,
+        onScene: async (rows) => { outline.draft = rows; await save(); },
+      });
+      delete outline.draft;
+      delete outline.failures;
+      await save();
       await env.DB.prepare("UPDATE chapters SET spoken = ?, clips_json = '[]', duration = 0, updated_at = ? WHERE episode_id = ? AND idx = ?")
         .bind(gen.spoken, now(), pending.episodeId, pending.idx).run();
       if (gen.droppedCues.length) console.log("dropped cues", pending.episodeId, gen.droppedCues.join(" | "));
@@ -89,7 +101,11 @@ export async function voiceNext(env: Env): Promise<string> {
       // clips of the replaced script are orphans now (new keys carry a text hash)
       if (JSON.parse(ch.clips_json || "[]").length) await deletePrefix(env, `episodes/${pending.episodeId}/ch-${pending.idx}-line-`);
     } catch (e) {
-      if (isNeuronsExhausted(e)) return `paused-neurons scripting ${pending.episodeId} #${pending.idx}`;
+      if (isNeuronsExhausted(e)) return `paused-neurons scripting ${pending.episodeId} #${pending.idx} (${outline.draft ? "draft saved" : "no draft yet"})`;
+      // a plan the model can't write against must not stall the queue: after three bad nights, re-plan
+      outline.failures = (outline.failures ?? 0) + 1;
+      if (outline.failures >= MAX_SCRIPT_FAILURES) { delete outline.plan; delete outline.draft; delete outline.failures; }
+      await save();
       throw e;
     }
   }

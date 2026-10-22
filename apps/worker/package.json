@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@banyan/core": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261006.1",
+    "@types/node": "^24.19.1",
     "typescript": "^7.0.2",
+    "vitest": "^3.2.7",
     "wrangler": "^4.147.0"
   }
 }

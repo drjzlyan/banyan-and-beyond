@@ -2,7 +2,7 @@ import { type AiRunner, STORY_MODEL, STORY_MODEL_FALLBACK, extractAiText } from 
 import { premiseById, type Premise } from "./premises.ts";
 import { INTRO_LINE, OUTRO_LINE } from "./selection.ts";
 import { SFX, SFX_IDS, type SfxId, tuneCues } from "./sounds.ts";
-import { asciiPunct, stripStageDirections, hasBannedWord, isViewerQuestion, parseDialogue, parseScript, splitDialogue, storyProblems, validateChapterBody, type ScriptItem } from "./story.ts";
+import { asciiPunct, sceneMarks, stripStageDirections, hasBannedWord, isViewerQuestion, parseDialogue, parseScript, splitDialogue, storyProblems, validateChapterBody, type ScriptItem } from "./story.ts";
 import type { DialogueLine, EpisodeOutline, StoryPlan } from "./types.ts";
 import { CAST_KINDS, CAST_KIND_IDS, LOCATIONS, LOCATION_IDS, MOODS, RESERVED_SPEAKERS, isCastKind, isLocation, isMood } from "./world.ts";
 
@@ -18,12 +18,21 @@ import { CAST_KINDS, CAST_KIND_IDS, LOCATIONS, LOCATION_IDS, MOODS, RESERVED_SPE
 export const SCENES_MIN = 6;
 export const SCENES_MAX = 8;
 export const SCENE_WORDS = 130;
-/** Measured live: a good scene comes back at 75-135 words. */
+/**
+ * One scene's hard window. The story window below is derived from it, so a story whose every
+ * scene passed can never be thrown away at the join (that stalled the nightly queue on 2026-10-13:
+ * the cron retried the same chapter every night). A short story is a Studio warning, not a failure.
+ * Measured live: a good scene comes back at 75-135 words, 10-15 lines.
+ */
 export const MIN_SCENE_WORDS = 65;
+export const MAX_SCENE_WORDS = 170;
+export const MIN_SCENE_LINES = 7;
+export const MAX_SCENE_LINES = 17;
 export const TARGET_STORY_WORDS = 900;
-/** Hard window for the joined story; the floor is what six short valid scenes reach. */
-export const MIN_STORY_WORDS = 600;
-export const MAX_STORY_WORDS = 1400;
+/** Room for the fixed intro and outro lines. */
+const BOOKEND_WORDS = 30;
+export const MIN_STORY_WORDS = SCENES_MIN * MIN_SCENE_WORDS;
+export const MAX_STORY_WORDS = SCENES_MAX * MAX_SCENE_WORDS + BOOKEND_WORDS;
 /** Kept for callers that still speak of chapters (one story = one chapter). */
 export const MIN_CHAPTER_WORDS = MIN_STORY_WORDS;
 export const MAX_CHAPTER_WORDS = MAX_STORY_WORDS;
@@ -247,8 +256,8 @@ export function checkScenes(rows: string[], scenes: number[], plan: StoryPlan, p
   }
   for (const n of scenes) {
     const k = perScene.get(n) ?? 0;
-    if (k < 7) problems.push(`scene ${n} has ${k} spoken lines, needs 10 to 15`);
-    if (k > 22) problems.push(`scene ${n} has ${k} spoken lines, keep it to 10 to 15`);
+    if (k < MIN_SCENE_LINES) problems.push(`scene ${n} has ${k} spoken lines, needs 10 to 15`);
+    if (k > MAX_SCENE_LINES) problems.push(`scene ${n} has ${k} spoken lines, keep it to 10 to 15`);
   }
   // story-level checks, reported only for the new lines
   const before = (parseDialogue(prior.join("\n")).filter(Boolean) as DialogueLine[]);
@@ -276,8 +285,15 @@ export interface GeneratedStory {
   droppedCues: string[];
 }
 
-/** Plan (unless given) and write a whole standalone story. Intro and outro are fixed by code. */
-export async function generateStory(ai: AiRunner, outline: EpisodeOutline, opts: GenOpts & { plan?: StoryPlan } = {}): Promise<GeneratedStory> {
+/**
+ * Plan (unless given) and write a whole standalone story. Intro and outro are fixed by code.
+ * Resumable: `draft` holds scenes accepted on an earlier night (their rows), and `onScene` is told the
+ * accepted rows after every scene, so a neuron pause or one failing scene never throws away the rest.
+ */
+export async function generateStory(
+  ai: AiRunner, outline: EpisodeOutline,
+  opts: GenOpts & { plan?: StoryPlan; draft?: string[]; onScene?: (rows: string[]) => Promise<void> } = {},
+): Promise<GeneratedStory> {
   let attempts = 0;
   let plan = opts.plan;
   if (!plan) {
@@ -285,11 +301,14 @@ export async function generateStory(ai: AiRunner, outline: EpisodeOutline, opts:
     plan = p.plan;
     attempts += p.attempts;
   }
-  const raw: string[] = [];
+  const raw: string[] = [...(opts.draft ?? [])];
+  const written = Math.max(0, ...sceneMarks(raw.join("\n")).map((m) => m.n));
   for (const scenes of sceneBatches(plan.scenes.length)) {
+    if (scenes[scenes.length - 1]! <= written) continue;
     const out = await writeScenes(ai, outline, plan, scenes, raw, opts);
     attempts += out.attempts;
     raw.push(...out.rows);
+    await opts.onScene?.([...raw]);
   }
   const animals = plan.cast.filter((c) => !CAST_KINDS[c.kind].human).map((c) => ({ name: c.name, sound: CAST_KINDS[c.kind].sound as SfxId | null }));
   const items = parseScript(raw.map((l) => asciiPunct(l.trim())).join("\n")).filter(Boolean) as ScriptItem[];
@@ -323,7 +342,7 @@ async function writeScenes(ai: AiRunner, outline: EpisodeOutline, plan: StoryPla
     rows = dropBadCues(rows.map((r) => stripStageDirections(asciiPunct(r.trim()))).filter((r) => r && !/^[A-Z_]+:\s*$/.test(r)));
     const problems = checkScenes(rows, scenes, plan, prior);
     const w = spokenWords(rows);
-    if (w < scenes.length * MIN_SCENE_WORDS || w > scenes.length * 220) problems.push(`these scenes have ${w} words, aim for about ${scenes.length * SCENE_WORDS}`);
+    if (w < scenes.length * MIN_SCENE_WORDS || w > scenes.length * MAX_SCENE_WORDS) problems.push(`these scenes have ${w} words, aim for about ${scenes.length * SCENE_WORDS}`);
     if (!problems.length) return { rows, attempts: attempt };
     feedback = problems.slice(0, 5);
     opts.log?.(`scenes ${scenes.join(",")} attempt ${attempt} (${model}, ${w} words, ${rows.length} rows) rejected: ${feedback.join("; ")}\n  ${rows.join("\n  ")}`);

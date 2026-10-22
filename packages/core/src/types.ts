@@ -40,6 +40,10 @@ export interface EpisodeOutline {
   premiseId?: string;
   /** written by the planner on the scripting night; drives scenes, cast voices and sounds */
   plan?: StoryPlan;
+  /** scenes accepted so far (script rows), so the next night resumes instead of starting over */
+  draft?: string[];
+  /** nights in a row the writing failed for a reason other than neurons; at 3 the story is re-planned */
+  failures?: number;
 }
 
 export interface CastMember {

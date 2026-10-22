@@ -15,9 +15,10 @@ const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS yt_uploads (episode_id TEXT PRIMARY KEY, yt_video_id TEXT, resumable_url TEXT, status TEXT NOT NULL DEFAULT 'none', error TEXT, updated_at TEXT NOT NULL)`,
 ];
 
-let ready = false;
+// per database, so tests with a fresh database get their tables too
+const ready = new WeakSet<object>();
 export async function ensureSchema(db: D1Database): Promise<void> {
-  if (ready) return;
+  if (ready.has(db)) return;
   await db.batch(STATEMENTS.map((s) => db.prepare(s)));
   for (const s of ALTERS) {
     try {
@@ -26,5 +27,5 @@ export async function ensureSchema(db: D1Database): Promise<void> {
       if (!/duplicate column/i.test((e as Error).message)) throw e;
     }
   }
-  ready = true;
+  ready.add(db);
 }

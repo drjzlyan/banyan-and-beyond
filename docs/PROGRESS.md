@@ -33,7 +33,7 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
 
 ## 4. Neuron budget (do not re-derive)
 
-A ~7-min story ≈ 850–950 words ≈ 4,500–5,200 TTS chars → 2 nights of voicing at the 3,000-char nightly budget (Aura-2 ≈ 2,727 neurons/1k chars vs 10k/day free). The scripting night also spends the plan + one gpt-oss call per scene (measured live: 12 calls with retries), so it voices less: a story is ready in about **2–3 nights, ≈ 2–3 videos a week**. Extra character voices cost nothing extra (same chars). 2 stories in flight.
+A ~7-min story ≈ 850–950 words ≈ 4,500–5,200 TTS chars → 2 nights of voicing at the 3,000-char nightly budget (Aura-2 ≈ 2,727 neurons/1k chars vs 10k/day free). Scripting is the plan plus one gpt-oss call per scene, with retries. **Measured** in Workers AI analytics (GraphQL `aiInferenceAdaptiveGroups`), 2026-10-22: 20 gpt-oss calls = 3,707 neurons (≈185 per call), and 4 Llama fallback calls = 530. So a 12-call story costs ≈2,200 neurons to script, and the same night still voices nearly the full 3,000 chars. A story is ready in **about 2 nights, ≈ 3 videos a week**. Extra character voices cost nothing extra (same chars). 2 stories in flight. Re-measure with the same query if the model or the prompts change.
 
 ## 5. Session log (oldest first)
 
@@ -159,7 +159,18 @@ A ~7-min story ≈ 850–950 words ≈ 4,500–5,200 TTS chars → 2 nights of v
   - **Studio:** the card shows the story plan (want, chorus, cast with voices, mystery), scene headers and character names.
   - **Cleanup:** the code-drawn fallback scene is removed from `BanyanVideo` (~300 lines).
   - **Verified:** 84 tests, typecheck, build and wrangler dry-run. A headless render of the live story through the real `pitchClips` path (silent voices, 45 s in 62 s) confirmed character captions, sound-word bursts and samples in the mix (the bark at its cue: −19 dB against a −46 dB bed). Dev harnesses `apps/video/dev/story.tsx` and `dev/sounds.tsx` are gitignored.
-  - **Not done yet:** expressive acting (mouth shapes, eyebrows, gestures) needs the rig work in Phase 1. The dholak pick is still open. **Phase 1 (rig pilot) and Phase 2 (story world)** follow the plan file.
+  - **After an advisor review, same session:**
+    - **Story limits derived from scene limits.** The story window now follows from the scene window (floor 6 × 65 words; caps 8 × 17 lines and 8 × 170 words + bookends). Before, valid scenes could fail at the join and stall the queue, as on 10-13. Tested at both extremes.
+    - **Writing resumes across nights.** Each accepted scene is saved as `outline.draft`, so a neuron pause or a failing scene resumes the next night. After 3 failed nights (not neuron pauses) the story is re-planned.
+    - **Legacy episodes archived on sight.** The nightly engine archives a legacy episode when it meets one, so it can't hold the queue.
+    - **`apps/worker/test/voice-next.test.ts`** runs `voiceNext` end to end on node:sqlite with R2 and AI faked. It covers the archive, the plan, six scenes, the cast voice and pitch, finishing voicing, and resuming after a pause.
+    - Today's demo runs used ≈4.2k neurons, so the 22 Oct cron voices less.
+  - **Not done yet** (Phase 0 items left):
+    - ambience by location and music beds by mood: the single evening bed remains
+    - character voices in the Voice Lab UI: settings exist, but there is no picker or preview yet
+    - expressive acting (mouth shapes, eyebrows, gestures): needs the Phase 1 rig work
+    - the dholak pick
+  - **On screen it is still Ajja and the Kid under one banyan.** "Same scene forever" and stiff characters remain until **Phase 1 (rig pilot) and Phase 2 (story world)** in the plan file.
 
 ## 6. Deferred owner items (everything else is built)
 
