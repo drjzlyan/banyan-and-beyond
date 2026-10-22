@@ -9,7 +9,8 @@
     "typecheck": "tsc -p .",
     "art": "node scripts/generate-art.mjs",
     "rig": "node scripts/rig-art.mjs",
-    "sounds": "python3 scripts/build-sounds.py"
+    "sounds": "python3 scripts/build-sounds.py",
+    "rig-cast": "node scripts/rig-cast.mjs"
   },
   "dependencies": {
     "@banyan/core": "workspace:*",

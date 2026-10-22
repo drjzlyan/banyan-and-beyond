@@ -1,226 +1,249 @@
 {
-  "ajja": {
-    "bytes": 118874,
-    "file": "ajja.svg",
-    "id": "gen_FUB5ce_43tmSS4nk",
-    "license": "commercial",
-    "prompt_id": "ajja_talk"
-  },
-  "ajja.v1": {
-    "bytes": 223313,
-    "file": "candidates/ajja.v1.svg",
-    "id": "gen_JWCQjeXfIgNU6Vec",
-    "license": "commercial"
-  },
-  "banyan": {
-    "bytes": 264705,
-    "file": "banyan.svg",
-    "id": "gen_v_SbUqEfiqF90Jai",
-    "license": "commercial",
-    "edited": "pale canopy patches recoloured light green by hand",
-    "picked_by_owner": "2026-10-13"
-  },
-  "banyan.v0": {
-    "bytes": 264705,
-    "file": "candidates/banyan.v0.svg",
-    "id": "gen_v_SbUqEfiqF90Jai",
-    "license": "commercial"
-  },
-  "bird": {
-    "bytes": 21207,
-    "file": "bird.svg",
-    "id": "gen_TgD8sa8i1kwM7w-I",
-    "license": "commercial"
-  },
-  "butterfly": {
-    "bytes": 47130,
-    "file": "butterfly.svg",
-    "id": "gen_4-EyD_GoFccZ3Ogg",
-    "license": "commercial"
-  },
-  "cow": {
-    "bytes": 73572,
-    "file": "cow.svg",
-    "id": "gen_uzOoH1V_fXCygpfZ",
-    "license": "commercial"
-  },
-  "dholak": {
-    "bytes": 39354,
-    "file": "dholak.svg",
-    "id": "gen_ejcB02jWnZcaBcWp",
-    "license": "commercial"
-  },
-  "dholak.drawn": {
-    "file": "candidates/dholak.drawn.svg",
-    "drawn_by_hand": true
-  },
-  "dholak.v10": {
-    "file": "candidates/dholak.v10.svg",
-    "id": "gen_90sUwNhyFPDQWaRR",
-    "license": "commercial"
-  },
-  "dholak.v7": {
-    "file": "candidates/dholak.v7.svg",
-    "id": "gen_OENKh1GFfnsb09iH",
-    "license": "commercial"
-  },
-  "dholak.v9": {
-    "file": "candidates/dholak.v9.svg",
-    "id": "gen_3Sky29zl9Jc7N5Nh",
-    "license": "commercial"
-  },
-  "flute": {
-    "bytes": 36059,
-    "file": "flute.svg",
-    "id": "gen_kxzA0XE2eQNsMgx_",
-    "license": "commercial"
-  },
-  "hut": {
-    "bytes": 259129,
-    "file": "hut.svg",
-    "id": "gen_o2ePCPkioTBntIUu",
-    "license": "commercial"
-  },
-  "kid": {
-    "bytes": 84974,
-    "file": "kid.svg",
-    "id": "gen_XjvJaM6CWAOsk9rv",
-    "license": "commercial",
-    "prompt_id": "kid_talk"
-  },
-  "kid.v1": {
-    "bytes": 79936,
-    "file": "candidates/kid.v1.svg",
-    "id": "gen_SO9H1Z-Il6P7wQUs",
-    "license": "commercial"
-  },
-  "kid_cheer.v1": {
-    "bytes": 120347,
-    "file": "candidates/kid_cheer.v1.svg",
-    "id": "gen_nJfv9iS8qpW8bEd-",
-    "license": "commercial"
-  },
-  "kite": {
-    "file": "kite.svg",
-    "id": "gen_j52FYcuOwijBRU61",
-    "license": "commercial",
-    "picked_by_owner": "2026-10-13"
-  },
-  "kite.v1": {
-    "bytes": 26990,
-    "file": "candidates/kite.v1.svg",
-    "id": "gen_GYnJHS5VUp-Srx8p",
-    "license": "commercial"
-  },
-  "kite.v3": {
-    "file": "candidates/kite.v3.svg",
-    "id": "gen_j52FYcuOwijBRU61",
-    "license": "commercial"
-  },
-  "logo": {
-    "file": "logo.svg",
-    "composed_from": [
-      "gen_j4UwQVMYaySGh7bg",
-      "gen_9MM4AQvVhXuIyr9U"
-    ],
-    "license": "commercial",
-    "edited": "logo.v6 book art (above its misspelled lettering) composed with logo.v3's lettering",
-    "picked_by_owner": "2026-10-13"
-  },
-  "logo.v1": {
-    "bytes": 38131,
-    "file": "candidates/logo.v1.svg",
-    "id": "gen_yer1KIi_-K5C2xUb",
-    "license": "commercial"
-  },
-  "logo.v3": {
-    "file": "candidates/logo.v3.svg",
-    "id": "gen_9MM4AQvVhXuIyr9U",
-    "license": "commercial"
-  },
-  "logo.v6": {
-    "file": "candidates/logo.v6.svg",
-    "id": "gen_j4UwQVMYaySGh7bg",
-    "license": "commercial"
-  },
-  "mango_tree": {
-    "bytes": 148056,
-    "file": "mango_tree.svg",
-    "id": "gen_7zedRqBDLG2zUPPX",
-    "license": "commercial",
-    "edited": "white gaps recoloured leaf green, mangoes ripened by hand",
-    "picked_by_owner": "2026-10-13"
-  },
-  "mango_tree.v1": {
-    "bytes": 148056,
-    "file": "candidates/mango_tree.v1.svg",
-    "id": "gen_7zedRqBDLG2zUPPX",
-    "license": "commercial"
-  },
-  "marigolds": {
-    "bytes": 138436,
-    "file": "marigolds.svg",
-    "id": "gen_3AgKCL0owrz6Gd_8",
-    "license": "commercial"
-  },
-  "parrot": {
-    "file": "parrot.svg",
-    "id": "gen_9eFSdAlW_bhpDPtn",
-    "license": "commercial",
-    "edited": "cream background removed by hand",
-    "picked_by_owner": "2026-10-13"
-  },
-  "parrot.v1": {
-    "bytes": 14011,
-    "file": "candidates/parrot.v1.svg",
-    "id": "gen_BGqwfW0iyKRJQnhD",
-    "license": "commercial"
-  },
-  "parrot.v3": {
-    "file": "candidates/parrot.v3.svg",
-    "id": "gen_9eFSdAlW_bhpDPtn",
-    "license": "commercial"
-  },
-  "peacock": {
-    "file": "peacock.svg",
-    "id": "gen_-BevMIhCaYfLtEcX",
-    "license": "commercial",
-    "edited": "ground shadow removed by hand",
-    "picked_by_owner": "2026-10-13"
-  },
-  "peacock.v1": {
-    "bytes": 37558,
-    "file": "candidates/peacock.v1.svg",
-    "id": "gen_TtJ_GmceGsuj6dzb",
-    "license": "commercial"
-  },
-  "peacock.v2": {
-    "file": "candidates/peacock.v2.svg",
-    "id": "gen_-BevMIhCaYfLtEcX",
-    "license": "commercial"
-  },
-  "puppy": {
-    "bytes": 190098,
-    "file": "puppy.svg",
-    "id": "gen_V1xuWzYUHm6zruB7",
-    "license": "commercial"
-  },
-  "rain_cloud": {
-    "bytes": 11837,
-    "file": "rain_cloud.svg",
-    "id": "gen_h7jMsAQoRy1b-Vvn",
-    "license": "commercial"
-  },
-  "splash": {
-    "bytes": 52285,
-    "file": "splash.svg",
-    "id": "gen_OJMfhLja-7QTLy-a",
-    "license": "commercial"
-  },
-  "temple": {
-    "bytes": 167965,
-    "file": "temple.svg",
-    "id": "gen_rjs0MS9hT2z2ls8b",
-    "license": "commercial"
-  }
+ "ajja": {
+  "bytes": 118874,
+  "file": "ajja.svg",
+  "id": "gen_FUB5ce_43tmSS4nk",
+  "license": "commercial",
+  "prompt_id": "ajja_talk"
+ },
+ "ajja.v1": {
+  "bytes": 223313,
+  "file": "candidates/ajja.v1.svg",
+  "id": "gen_JWCQjeXfIgNU6Vec",
+  "license": "commercial"
+ },
+ "banyan": {
+  "bytes": 264705,
+  "file": "banyan.svg",
+  "id": "gen_v_SbUqEfiqF90Jai",
+  "license": "commercial",
+  "edited": "pale canopy patches recoloured light green by hand",
+  "picked_by_owner": "2026-10-13"
+ },
+ "banyan.v0": {
+  "bytes": 264705,
+  "file": "candidates/banyan.v0.svg",
+  "id": "gen_v_SbUqEfiqF90Jai",
+  "license": "commercial"
+ },
+ "bird": {
+  "bytes": 21207,
+  "file": "bird.svg",
+  "id": "gen_TgD8sa8i1kwM7w-I",
+  "license": "commercial"
+ },
+ "butterfly": {
+  "bytes": 47130,
+  "file": "butterfly.svg",
+  "id": "gen_4-EyD_GoFccZ3Ogg",
+  "license": "commercial"
+ },
+ "cow": {
+  "bytes": 73572,
+  "file": "cow.svg",
+  "id": "gen_uzOoH1V_fXCygpfZ",
+  "license": "commercial"
+ },
+ "dholak": {
+  "bytes": 39354,
+  "file": "dholak.svg",
+  "id": "gen_ejcB02jWnZcaBcWp",
+  "license": "commercial"
+ },
+ "dholak.drawn": {
+  "file": "candidates/dholak.drawn.svg",
+  "drawn_by_hand": true
+ },
+ "dholak.v10": {
+  "file": "candidates/dholak.v10.svg",
+  "id": "gen_90sUwNhyFPDQWaRR",
+  "license": "commercial"
+ },
+ "dholak.v7": {
+  "file": "candidates/dholak.v7.svg",
+  "id": "gen_OENKh1GFfnsb09iH",
+  "license": "commercial"
+ },
+ "dholak.v9": {
+  "file": "candidates/dholak.v9.svg",
+  "id": "gen_3Sky29zl9Jc7N5Nh",
+  "license": "commercial"
+ },
+ "flute": {
+  "bytes": 36059,
+  "file": "flute.svg",
+  "id": "gen_kxzA0XE2eQNsMgx_",
+  "license": "commercial"
+ },
+ "hut": {
+  "bytes": 259129,
+  "file": "hut.svg",
+  "id": "gen_o2ePCPkioTBntIUu",
+  "license": "commercial"
+ },
+ "kid": {
+  "bytes": 84974,
+  "file": "kid.svg",
+  "id": "gen_XjvJaM6CWAOsk9rv",
+  "license": "commercial",
+  "prompt_id": "kid_talk"
+ },
+ "kid.v1": {
+  "bytes": 79936,
+  "file": "candidates/kid.v1.svg",
+  "id": "gen_SO9H1Z-Il6P7wQUs",
+  "license": "commercial"
+ },
+ "kid_cheer.v1": {
+  "bytes": 120347,
+  "file": "candidates/kid_cheer.v1.svg",
+  "id": "gen_nJfv9iS8qpW8bEd-",
+  "license": "commercial"
+ },
+ "kite": {
+  "file": "kite.svg",
+  "id": "gen_j52FYcuOwijBRU61",
+  "license": "commercial",
+  "picked_by_owner": "2026-10-13"
+ },
+ "kite.v1": {
+  "bytes": 26990,
+  "file": "candidates/kite.v1.svg",
+  "id": "gen_GYnJHS5VUp-Srx8p",
+  "license": "commercial"
+ },
+ "kite.v3": {
+  "file": "candidates/kite.v3.svg",
+  "id": "gen_j52FYcuOwijBRU61",
+  "license": "commercial"
+ },
+ "logo": {
+  "file": "logo.svg",
+  "composed_from": [
+   "gen_j4UwQVMYaySGh7bg",
+   "gen_9MM4AQvVhXuIyr9U"
+  ],
+  "license": "commercial",
+  "edited": "logo.v6 book art (above its misspelled lettering) composed with logo.v3's lettering",
+  "picked_by_owner": "2026-10-13"
+ },
+ "logo.v1": {
+  "bytes": 38131,
+  "file": "candidates/logo.v1.svg",
+  "id": "gen_yer1KIi_-K5C2xUb",
+  "license": "commercial"
+ },
+ "logo.v3": {
+  "file": "candidates/logo.v3.svg",
+  "id": "gen_9MM4AQvVhXuIyr9U",
+  "license": "commercial"
+ },
+ "logo.v6": {
+  "file": "candidates/logo.v6.svg",
+  "id": "gen_j4UwQVMYaySGh7bg",
+  "license": "commercial"
+ },
+ "mango_tree": {
+  "bytes": 148056,
+  "file": "mango_tree.svg",
+  "id": "gen_7zedRqBDLG2zUPPX",
+  "license": "commercial",
+  "edited": "white gaps recoloured leaf green, mangoes ripened by hand",
+  "picked_by_owner": "2026-10-13"
+ },
+ "mango_tree.v1": {
+  "bytes": 148056,
+  "file": "candidates/mango_tree.v1.svg",
+  "id": "gen_7zedRqBDLG2zUPPX",
+  "license": "commercial"
+ },
+ "marigolds": {
+  "bytes": 138436,
+  "file": "marigolds.svg",
+  "id": "gen_3AgKCL0owrz6Gd_8",
+  "license": "commercial"
+ },
+ "parrot": {
+  "file": "parrot.svg",
+  "id": "gen_9eFSdAlW_bhpDPtn",
+  "license": "commercial",
+  "edited": "cream background removed by hand",
+  "picked_by_owner": "2026-10-13"
+ },
+ "parrot.v1": {
+  "bytes": 14011,
+  "file": "candidates/parrot.v1.svg",
+  "id": "gen_BGqwfW0iyKRJQnhD",
+  "license": "commercial"
+ },
+ "parrot.v3": {
+  "file": "candidates/parrot.v3.svg",
+  "id": "gen_9eFSdAlW_bhpDPtn",
+  "license": "commercial"
+ },
+ "peacock": {
+  "file": "peacock.svg",
+  "id": "gen_-BevMIhCaYfLtEcX",
+  "license": "commercial",
+  "edited": "ground shadow removed by hand",
+  "picked_by_owner": "2026-10-13"
+ },
+ "peacock.v1": {
+  "bytes": 37558,
+  "file": "candidates/peacock.v1.svg",
+  "id": "gen_TtJ_GmceGsuj6dzb",
+  "license": "commercial"
+ },
+ "peacock.v2": {
+  "file": "candidates/peacock.v2.svg",
+  "id": "gen_-BevMIhCaYfLtEcX",
+  "license": "commercial"
+ },
+ "puppy": {
+  "bytes": 190098,
+  "file": "puppy.svg",
+  "id": "gen_V1xuWzYUHm6zruB7",
+  "license": "commercial"
+ },
+ "rain_cloud": {
+  "bytes": 11837,
+  "file": "rain_cloud.svg",
+  "id": "gen_h7jMsAQoRy1b-Vvn",
+  "license": "commercial"
+ },
+ "splash": {
+  "bytes": 52285,
+  "file": "splash.svg",
+  "id": "gen_OJMfhLja-7QTLy-a",
+  "license": "commercial"
+ },
+ "temple": {
+  "bytes": 167965,
+  "file": "temple.svg",
+  "id": "gen_rjs0MS9hT2z2ls8b",
+  "license": "commercial"
+ },
+ "girl": {
+  "bytes": 64704,
+  "file": "cast/girl.svg",
+  "id": "gen_sGUNfGguRf9FUmDv",
+  "license": "commercial",
+  "prompt_id": "cast_girl_tpose"
+ },
+ "girl.v1": {
+  "bytes": 47734,
+  "file": "candidates/girl.v1.svg",
+  "id": "gen_GkW2I7wLgpDhnorz",
+  "license": "commercial",
+  "prompt_id": "cast_girl_apose",
+  "note": "rejected: skin same colour as blouse, long skirt hides legs, ground shadow"
+ },
+ "girl.v3": {
+  "bytes": 96234,
+  "file": "candidates/girl.v3.svg",
+  "id": "gen_uFnKS008V07JOHHT",
+  "license": "commercial",
+  "prompt_id": "cast_girl_pigtails",
+  "note": "rejected: green skin, palette scrambled, ground shadow"
+ }
 }
