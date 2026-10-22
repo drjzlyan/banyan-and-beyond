@@ -186,6 +186,8 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname === "/health") return json({ ok: true });
+    // browsers ask the root for an icon; the Studio build ships it under /studio/
+    if (url.pathname === "/favicon.ico" || url.pathname === "/favicon.svg") return Response.redirect(`${url.origin}/studio/favicon.svg`, 301);
 
     // Public, CORS-enabled media so the browser renderer and YouTube can fetch chapter videos.
     if (url.pathname.startsWith("/assets/")) {
