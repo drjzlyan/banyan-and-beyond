@@ -1,6 +1,6 @@
 # Banyan and Beyond — progress, decisions and plan
 
-_Last updated: 2026-10-22 (standalone stories, plan-first story engine, real sounds; branch `story-world`, not merged). Keep current at the end of every session._
+_Last updated: 2026-10-22 (standalone stories deployed; Phase 1 puppet pilot and sound round 2 on `story-world`). Keep current at the end of every session._
 
 ## 1. Goal
 
@@ -172,11 +172,43 @@ A ~7-min story ≈ 850–950 words ≈ 4,500–5,200 TTS chars → 2 nights of v
     - the dholak pick
   - **On screen it is still Ajja and the Kid under one banyan.** "Same scene forever" and stiff characters remain until **Phase 1 (rig pilot) and Phase 2 (story world)** in the plan file.
 
+- **2026-10-22, later (merged + deployed, dholak review, Phase 1 pilot, sounds round 2)**
+  - **Deployed.** `story-world` was fast-forwarded into `main` at `0c3edd8`; CI and Deploy were green. Live checks: `/health` 200, the Studio serves the favicon, `/favicon.ico` redirects.
+  - **Sound verdicts.** On the Sound Check page the owner marked 20 keep and 21 replace. The crow is "not a crow sound"; the drum should be "more indian".
+  - **Sounds round 2.** BigSoundBank's free files are CC0 1.0, checked per page. It gave real crows, cows, dogs, a rooster, creaking doors, small splashes, apple crunches, child giggles and snores, applause, a market and a cartoon harp "boing". The monkey is a public-domain siamang from Commons.
+    - No CC0 dholak or tabla exists, so drum A and B are new synths built from the jingle's tabla strokes, and slip A and B are new slide whistles.
+    - The gasp is the Kid's own Aura voice (3 takes; a few characters of TTS).
+    - 47 candidates are on **Banyan Sound Check, Round 2**: https://claude.ai/artifact/Srjrbe1cuxrxeVtuHnESLA (db `round2`). The builder and the list are in `apps/video/art/sound-candidates/`. **Next:** apply the picks (see that README).
+  - **Dholak pick page:** https://claude.ai/artifact/XEuXNDwGkazhYnzcSuCQX5 (db `pick/dholak`). It shows 5 options large and composited into a real frame. The current art has a handle, so it reads as a hand drum.
+  - **Phase 1 pilot (owner approved the phase).** The Inspyry balance was **21 credits, not 44**.
+    - Three tries, 3 credits, so 18 are left:
+      - v1 had skin the same colour as the blouse, a long skirt hiding the legs, and a ground shadow
+      - **v2 (`gen_sGUNfGguRf9FUmDv`) is used:** a T-pose with clean limbs
+      - v3 had green skin
+      - Inspyry's colour mapping is unreliable between runs.
+    - **`scripts/rig-cast.mjs` + `art/cast-rig.json`** cut her into head, torso, upper and lower arms, and legs. Every part keeps the source viewBox.
+      - Limbs keep their own shapes over a drawn outline, because the art's shared silhouette path can't move with them.
+      - Capsule cuts hide the elbow seam, and a skin fill covers a braid notch in the right arm.
+      - Braid segments that crossed the T-posed arms are drawn in code (`plaits`).
+    - **`src/Puppet.tsx`:**
+      - nested joints
+      - 9 poses (idle, walk, run, wave, point, cheer, sad, surprised, laugh), blended over 0.35 s
+      - blinks and a talking mouth
+      - renders at about 0.2× real time
+      - Known rough edge: a thin dark sliver at the left sleeve, visible only up close.
+    - Review page: **Puppet Pilot Review**, https://claude.ai/artifact/Fv2FY4oinBMa5GSMLMshzM (db `review/puppet`).
+    - **Cost to finish the story world:** about 45–70 more credits (cast, animals with their own small pilot, places, props). The owner needs to top up before Phase 2.
+  - Dev harnesses (gitignored): `dev/puppet.tsx`, `dev/variants.tsx`, `dev/story.tsx`, `dev/sounds.tsx`.
+
 ## 6. Deferred owner items (everything else is built)
 
-0. **Review + merge `story-world`** — merging to `main` deploys. After deploy the first nightly run archives the old 8-chapter episode and starts a standalone story (or press New story). Use the Sound Check page to mark sounds, and Voice Lab or a first story to ear-check the character voices.
-0b. **Phase 1 go-ahead:** the rig pilot spends ~10 Inspyry credits on one story character; the full cast and locations need ~80–120 more after you approve the look.
-0c. **Dholak pick** (still open, see 2026-10-13/14).
+0. **Pick on three pages:**
+   - Sound Check Round 2 (21 sounds)
+   - Dholak Pick
+   - Puppet Pilot Review: approve the look or say what to change
+   Then Claude applies the picks.
+0b. **Top up Inspyry credits** (about 45–70 more) before Phase 2. 18 are left.
+0c. **Ear-check the character voices** on the first standalone story. The nightly cron archives the old episode and starts one, or press New story.
 1. **Ear check** — after deploying the branch: Studio → Voice Lab, pick Ajja and Kid voices and pitch, save, then use Re-voice on chapter 1. Until then use the verification artifact above.
 2. **YouTube OAuth** — create a Google Cloud project, enable YouTube Data API v3, OAuth consent (external) + desktop/web client, run the consent flow to get a refresh token with `youtube.upload` scope.
 3. **Secrets** — `gh secret set YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN`, then add them to `deploy.yml`'s secrets block (currently ADMIN_TOKEN only so deploys stay green).

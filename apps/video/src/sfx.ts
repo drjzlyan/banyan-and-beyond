@@ -24,7 +24,7 @@ function noiseBuffer(ctx: BaseAudioContext, seconds: number, seed: number): Audi
 
 type Ctx = OfflineAudioContext;
 
-function noise(ctx: Ctx, out: AudioNode, at: number, len: number, seed: number, filter: BiquadFilterType, freq: number, q: number, env: [number, number][]) {
+export function noise(ctx: Ctx, out: AudioNode, at: number, len: number, seed: number, filter: BiquadFilterType, freq: number, q: number, env: [number, number][]) {
   const src = ctx.createBufferSource();
   src.buffer = noiseBuffer(ctx, len, seed);
   const f = ctx.createBiquadFilter();
@@ -36,7 +36,7 @@ function noise(ctx: Ctx, out: AudioNode, at: number, len: number, seed: number, 
   src.start(at); src.stop(at + len);
 }
 
-function tone(ctx: Ctx, out: AudioNode, at: number, freq: number | [number, number], len: number, peak: number, type: OscillatorType = "sine", attack = 0.005) {
+export function tone(ctx: Ctx, out: AudioNode, at: number, freq: number | [number, number], len: number, peak: number, type: OscillatorType = "sine", attack = 0.005) {
   const o = ctx.createOscillator();
   o.type = type;
   if (Array.isArray(freq)) { o.frequency.setValueAtTime(freq[0], at); o.frequency.exponentialRampToValueAtTime(freq[1], at + len); }
@@ -52,7 +52,7 @@ function tone(ctx: Ctx, out: AudioNode, at: number, freq: number | [number, numb
 type Synth = { seconds: number; draw: (ctx: Ctx, out: AudioNode) => void };
 
 /** A frequency glide with a gain envelope (the cartoon foley building block). */
-function glide(ctx: Ctx, out: AudioNode, at: number, f: [number, number][], len: number, peak: number, type: OscillatorType = "sine") {
+export function glide(ctx: Ctx, out: AudioNode, at: number, f: [number, number][], len: number, peak: number, type: OscillatorType = "sine") {
   const o = ctx.createOscillator();
   o.type = type;
   o.frequency.setValueAtTime(f[0]![1], at + f[0]![0]);

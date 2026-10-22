@@ -130,7 +130,7 @@ function pluck(ctx: Ctx, out: AudioNode, at: number, f: number, level = 0.07) {
 }
 
 /** Tabla strokes: bayan (low, pitch-bending "ge"), dayan (ringing "na"/"tin"), and dry "ka". */
-function tabla(ctx: Ctx, out: AudioNode, at: number, stroke: "dha" | "ge" | "na" | "tin" | "ka" | "DHA", seed: number, level = 1) {
+export function tabla(ctx: Ctx, out: AudioNode, at: number, stroke: "dha" | "ge" | "na" | "tin" | "ka" | "DHA", seed: number, level = 1) {
   const hit = (f0: number, f1: number, len: number, peak: number) => {
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.frequency.setValueAtTime(f0, at); o.frequency.exponentialRampToValueAtTime(f1, at + len);
