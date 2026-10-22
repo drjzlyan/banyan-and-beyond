@@ -1,3 +1,5 @@
+import type { StoryPlan } from "@banyan/core";
+
 const KEY = "banyan.adminToken";
 
 export const getToken = () => {
@@ -49,7 +51,7 @@ export interface ChapterRow {
 
 export interface EpisodeDetail {
   id: string; title: string; status: string;
-  outline: { theme: { id: string; valueWord: string; moral: string }; kind: string; title: string };
+  outline: { theme: { id: string; valueWord: string; moral: string }; kind: string; title: string; format?: "story"; plan?: StoryPlan };
   chapters: ChapterRow[];
   thumbnail_key?: string | null;
   yt_upload?: { status: string; yt_video_id: string | null; error: string | null } | null;

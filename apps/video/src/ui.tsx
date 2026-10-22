@@ -14,10 +14,10 @@ export function Note({ note }: { note: { kind: NoteKind; text: string } | null }
 }
 
 const STATUS_TONE: Record<string, string> = {
-  "chapter-pending": "sun", outline: "sun", pending: "", voiced: "", rendered: "ok", approved: "ok", uploading: "warn", posted: "ok", failed: "bad",
+  "chapter-pending": "sun", outline: "sun", pending: "", voiced: "", rendered: "ok", approved: "ok", uploading: "warn", posted: "ok", failed: "bad", archived: "",
 };
 const STATUS_LABEL: Record<string, string> = {
-  "chapter-pending": "voicing", outline: "outline", pending: "ready to render", voiced: "voiced", rendered: "rendered", approved: "approved", uploading: "uploading", posted: "posted",
+  "chapter-pending": "voicing", outline: "outline", pending: "ready to render", voiced: "voiced", rendered: "rendered", approved: "approved", uploading: "uploading", posted: "posted", archived: "archived",
 };
 
 export function StatusPill({ status, chapter }: { status: string; chapter?: boolean }) {

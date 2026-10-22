@@ -1,12 +1,13 @@
 import { NIGHTLY_TTS_CHAR_BUDGET } from "./voices.ts";
 import { INTRO_LINE } from "./selection.ts";
+import { SFX } from "./sounds.ts";
 import { isViewerQuestion, parseDialogue, sfxCues, storyProblems, validateChapterBody } from "./story.ts";
 import { totalPauses } from "./timeline.ts";
 
 /** Target length of one standalone story video: ~7 min, in a 6-8 min window (owner's choice, 2026-10-22). */
 export const TARGET_CHAPTER_SECONDS = 420;
 export const TARGET_EPISODE_SECONDS = TARGET_CHAPTER_SECONDS;
-/** Extra room the renderer leaves for each sound cue before the next line (keep in sync with the Studio's SFX_GAP). */
+/** Extra room the renderer leaves for each "beat" sound cue before its line (overlays get none). */
 export const SFX_GAP_SECONDS = 1.2;
 /** Aura-2 reads these stories at roughly this pace (measured live: 620 words in 233 s). */
 export const SPOKEN_WORDS_PER_SECOND = 2.65;
@@ -57,7 +58,8 @@ export function analyzeChapter(
   const clips = opts.clipDurations ?? [];
   const voiced = clips.length > 0 && clips.length >= parsed.length;
   const cues = sfxCues(spoken ?? "");
-  const gap = totalPauses(parsed) + cues.length * SFX_GAP_SECONDS;
+  // only "beat" sounds get a gap of their own; overlays play under the voice on their word
+  const gap = totalPauses(parsed) + cues.filter((c) => SFX[c.id].kind === "beat").length * SFX_GAP_SECONDS;
   const seconds = voiced ? clips.reduce((n, c) => n + c.duration, 0) + gap : words / SPOKEN_WORDS_PER_SECOND + gap;
   const pitchOf = (speaker: string, stored?: number) =>
     speaker === "KID" ? (opts.kidPitch ?? 1) : speaker === "AJJA" ? (opts.ajjaPitch ?? 1) : (stored ?? opts.castPitch?.[speaker] ?? 1);

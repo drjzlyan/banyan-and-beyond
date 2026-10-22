@@ -3,14 +3,20 @@ import { parseUploadResponse, resumableInitRequest, setThumbnailRequest, uploadC
 const CHUNK = 8 * 1024 * 1024;
 
 /**
- * Browser-side YouTube publish: fetch the 8 chapter MP4s from R2, concat them
- * with ffmpeg.wasm (same encoder settings, stream-copy), then resumable-upload.
+ * Browser-side YouTube publish: a standalone story is one MP4, uploaded as is. A legacy episode's
+ * chapter MP4s are fetched from R2 and joined with ffmpeg.wasm (same encoder settings, stream-copy).
  * Runs on the owner's laptop — the Worker never touches video bytes.
  */
 export async function assembleEpisode(
   parts: string[],
   onProgress: (stage: string, fraction: number) => void,
 ): Promise<Blob> {
+  if (parts.length === 1) {
+    onProgress("fetching video", 0);
+    const blob = await (await fetch(parts[0]!)).blob();
+    onProgress("fetching video", 1);
+    return new Blob([blob], { type: "video/mp4" });
+  }
   const { FFmpeg } = await import("@ffmpeg/ffmpeg");
   const { fetchFile, toBlobURL } = await import("@ffmpeg/util");
   const base = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
@@ -19,7 +25,7 @@ export async function assembleEpisode(
   await ffmpeg.load({ coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, "text/javascript"), wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm") });
   const list: string[] = [];
   for (const [i, url] of parts.entries()) {
-    onProgress(`fetching chapter ${i + 1}/8`, i / 8 / 2);
+    onProgress(`fetching chapter ${i + 1}/${parts.length}`, i / parts.length / 2);
     const data = await fetchFile(url);
     const name = `ch${i}.mp4`;
     await ffmpeg.writeFile(name, data);

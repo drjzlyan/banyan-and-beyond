@@ -1,0 +1,247 @@
+{
+  "$comment": "Recorded sound effects bundled with the Studio (apps/video/src/sounds/<id>.ogg). Every file is CC0 or public domain, checked on its source page through the Wikimedia Commons API or the Kenney pack's License.txt. Rebuild with `pnpm --filter @banyan/video sounds` (needs ffmpeg + python3): it downloads each source, cuts [start, seconds], normalises to -16 LUFS / -1.5 dBTP and encodes mono Opus. Sounds not listed here are synthesized in src/sfx.ts.",
+  "sounds": {
+    "bark": {
+      "source": "https://commons.wikimedia.org/wiki/File:Dog_in_Antefasy.wav",
+      "license": "CC0",
+      "author": "Gasybeaugosse2020",
+      "cut": [
+        0.8,
+        1.6
+      ]
+    },
+    "bell": {
+      "source": "https://commons.wikimedia.org/wiki/File:Striking_a_bell_15cm_large.ogg",
+      "license": "Public domain",
+      "author": "stephan",
+      "cut": [
+        0,
+        3.2
+      ]
+    },
+    "birds": {
+      "source": "https://commons.wikimedia.org/wiki/File:Joseph_Sardin_-_Passer_domesticus_tschilp_call.oga",
+      "license": "CC0",
+      "author": "Joseph Sardin",
+      "cut": [
+        0,
+        3.0
+      ]
+    },
+    "cheer": {
+      "source": "https://commons.wikimedia.org/wiki/File:Clapping_hurray_(cropped).oga",
+      "license": "Public domain",
+      "author": "Starlite",
+      "cut": [
+        0,
+        3.2
+      ]
+    },
+    "clap": {
+      "source": "https://commons.wikimedia.org/wiki/File:Applause_ii.ogg",
+      "license": "Public domain",
+      "author": "thore",
+      "cut": [
+        0.9,
+        2.6
+      ]
+    },
+    "elephant": {
+      "source": "https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg",
+      "license": "CC0",
+      "author": "தகவலுழவன்",
+      "cut": [
+        0,
+        1.4
+      ]
+    },
+    "gasp": {
+      "source": "https://commons.wikimedia.org/wiki/File:Ohhh_ahhh.ogg",
+      "license": "Public domain",
+      "author": "starlite",
+      "cut": [
+        0,
+        1.9
+      ]
+    },
+    "giggle": {
+      "source": "https://commons.wikimedia.org/wiki/File:Laughter(s).ogg",
+      "license": "CC0",
+      "author": "sagetyrtle",
+      "cut": [
+        0.62,
+        1.8
+      ]
+    },
+    "goat": {
+      "source": "https://commons.wikimedia.org/wiki/File:Herd_of_goats_bleating.ogg",
+      "license": "Public domain",
+      "author": "stephan",
+      "cut": [
+        0,
+        3.0
+      ]
+    },
+    "gulp": {
+      "source": "https://commons.wikimedia.org/wiki/File:Swallowing_gulp.ogg",
+      "license": "Public domain",
+      "author": "gregoryweir",
+      "cut": [
+        0,
+        0.45
+      ]
+    },
+    "meow": {
+      "source": "https://commons.wikimedia.org/wiki/File:Meow_of_a_pleading_cat.oga",
+      "license": "Public domain",
+      "author": "Heismark",
+      "cut": [
+        0.28,
+        1.3
+      ]
+    },
+    "monkey": {
+      "source": "https://commons.wikimedia.org/wiki/File:Monkey_in_Antefasy.wav",
+      "license": "CC0",
+      "author": "Gasybeaugosse2020",
+      "cut": [
+        0.6,
+        0.8
+      ]
+    },
+    "moo": {
+      "source": "https://commons.wikimedia.org/wiki/File:Cow_in_Antefasy.wav",
+      "license": "CC0",
+      "author": "Gasybeaugosse2020",
+      "cut": [
+        0.6,
+        0.8
+      ]
+    },
+    "parrot": {
+      "source": "https://commons.wikimedia.org/wiki/File:Halsbandsittich.ogg",
+      "license": "CC0",
+      "author": "own source",
+      "cut": [
+        1.5,
+        1.6
+      ]
+    },
+    "peacock": {
+      "source": "https://commons.wikimedia.org/wiki/File:Pavo_cristatus_(call).ogg",
+      "license": "Public domain",
+      "author": "Ke4roh",
+      "cut": [
+        1.1,
+        2.4
+      ]
+    },
+    "rain": {
+      "source": "https://commons.wikimedia.org/wiki/File:Rain_(1).ogg",
+      "license": "Public domain",
+      "author": "ezwa",
+      "cut": [
+        1.0,
+        3.4
+      ]
+    },
+    "river": {
+      "source": "https://commons.wikimedia.org/wiki/File:Shallow_small_river_with_stony_riverbed.ogg",
+      "license": "Public domain",
+      "author": "stephan",
+      "cut": [
+        1.0,
+        3.4
+      ]
+    },
+    "rooster": {
+      "source": "https://commons.wikimedia.org/wiki/File:Small_rooster_crowing.ogg",
+      "license": "Public domain",
+      "author": "alys",
+      "cut": [
+        2.85,
+        1.7
+      ]
+    },
+    "snore": {
+      "source": "https://commons.wikimedia.org/wiki/File:Snoring_of_old_man.ogg",
+      "license": "CC0",
+      "author": "Saaabaaato",
+      "cut": [
+        0.9,
+        1.0
+      ]
+    },
+    "splash": {
+      "source": "https://commons.wikimedia.org/wiki/File:Bathtub_water_splashes.ogg",
+      "license": "Public domain",
+      "author": "gradha",
+      "cut": [
+        3.5,
+        1.0
+      ]
+    },
+    "yawn": {
+      "source": "https://commons.wikimedia.org/wiki/File:Yawning_1.ogg",
+      "license": "Public domain",
+      "author": "ezwa",
+      "cut": [
+        1.0,
+        1.5
+      ]
+    },
+    "footsteps": {
+      "source": "https://kenney.nl/assets/impact-sounds",
+      "license": "CC0",
+      "author": "Kenney (kenney.nl)",
+      "kenney": {
+        "pack": "impact-sounds",
+        "files": [
+          "Audio/footstep_grass_000.ogg",
+          "Audio/footstep_grass_001.ogg",
+          "Audio/footstep_grass_002.ogg",
+          "Audio/footstep_grass_003.ogg"
+        ],
+        "gap": 0.32
+      }
+    },
+    "knock": {
+      "source": "https://kenney.nl/assets/impact-sounds",
+      "license": "CC0",
+      "author": "Kenney (kenney.nl)",
+      "kenney": {
+        "pack": "impact-sounds",
+        "files": [
+          "Audio/impactWood_medium_000.ogg",
+          "Audio/impactWood_medium_001.ogg",
+          "Audio/impactWood_medium_002.ogg"
+        ],
+        "gap": 0.26
+      }
+    },
+    "door": {
+      "source": "https://kenney.nl/assets/rpg-audio",
+      "license": "CC0",
+      "author": "Kenney (kenney.nl)",
+      "kenney": {
+        "pack": "rpg-audio",
+        "files": [
+          "Audio/creak1.ogg"
+        ],
+        "gap": 0
+      }
+    },
+    "bonk": {
+      "source": "https://kenney.nl/assets/impact-sounds",
+      "license": "CC0",
+      "author": "Kenney (kenney.nl)",
+      "kenney": {
+        "pack": "impact-sounds",
+        "files": [
+          "Audio/impactSoft_medium_000.ogg"
+        ],
+        "gap": 0
+      }
+    }
+  }
+}

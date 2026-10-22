@@ -1,9 +1,11 @@
-import type { SfxId } from "@banyan/core";
+import { SFX_IDS, type SfxId } from "@banyan/core";
 import { wavBlob } from "./audio.ts";
 
 /**
- * Sound effects synthesized in the browser (Web Audio, OfflineAudioContext). No samples, no
- * downloads, no neurons: free-tier safe, and deterministic (seeded noise) so every render matches.
+ * Sound effects. Recorded CC0 / public-domain samples are bundled with the Studio
+ * (src/sounds/<id>.ogg, sources and licences in sounds.json); everything else (wind, music,
+ * cartoon foley) is synthesized in the browser with seeded Web Audio, so every render matches.
+ * No downloads at render time and no neurons: free-tier safe.
  */
 const SR = 24000;
 
@@ -47,7 +49,24 @@ function tone(ctx: Ctx, out: AudioNode, at: number, freq: number | [number, numb
   o.start(at); o.stop(at + len + 0.02);
 }
 
-const SOUNDS: Record<SfxId, { seconds: number; draw: (ctx: Ctx, out: AudioNode) => void }> = {
+type Synth = { seconds: number; draw: (ctx: Ctx, out: AudioNode) => void };
+
+/** A frequency glide with a gain envelope (the cartoon foley building block). */
+function glide(ctx: Ctx, out: AudioNode, at: number, f: [number, number][], len: number, peak: number, type: OscillatorType = "sine") {
+  const o = ctx.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(f[0]![1], at + f[0]![0]);
+  for (const [t, v] of f.slice(1)) o.frequency.exponentialRampToValueAtTime(v, at + t);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(peak, at + 0.01);
+  g.gain.setValueAtTime(peak, at + len * 0.7);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+  o.connect(g).connect(out);
+  o.start(at); o.stop(at + len + 0.02);
+}
+
+const SYNTH: Partial<Record<SfxId, Synth>> = {
   birds: { seconds: 2.4, draw: (ctx, out) => {
     const r = rng(7);
     for (let i = 0; i < 9; i++) {
@@ -117,9 +136,57 @@ const SOUNDS: Record<SfxId, { seconds: number; draw: (ctx: Ctx, out: AudioNode) 
   knock: { seconds: 1.4, draw: (ctx, out) => {
     for (const at of [0.05, 0.3, 0.55]) { noise(ctx, out, at, 0.07, 80, "bandpass", 350, 1.5, [[0.003, 0.9], [0.07, 0]]); tone(ctx, out, at, [210, 150], 0.08, 0.4); }
   } },
+  // cartoon foley
+  boing: { seconds: 0.7, draw: (ctx, out) => {
+    // a sprung "boing": pitch wobbles as it rises, vibrato decaying
+    const o = ctx.createOscillator(); o.type = "triangle";
+    o.frequency.setValueAtTime(180, 0); o.frequency.exponentialRampToValueAtTime(520, 0.12); o.frequency.exponentialRampToValueAtTime(330, 0.6);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 18; const lg = ctx.createGain(); lg.gain.setValueAtTime(70, 0); lg.gain.exponentialRampToValueAtTime(2, 0.6);
+    lfo.connect(lg).connect(o.frequency);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, 0); g.gain.exponentialRampToValueAtTime(0.5, 0.01); g.gain.exponentialRampToValueAtTime(0.0001, 0.65);
+    o.connect(g).connect(out); o.start(0); lfo.start(0); o.stop(0.7); lfo.stop(0.7);
+  } },
+  slip: { seconds: 0.9, draw: (ctx, out) => {
+    // slide whistle up then a quick drop
+    glide(ctx, out, 0, [[0, 600], [0.35, 1500], [0.75, 280]], 0.8, 0.28);
+    noise(ctx, out, 0.7, 0.15, 13, "lowpass", 300, 0.7, [[0.01, 0.4], [0.15, 0]]);
+  } },
+  bonk: { seconds: 0.5, draw: (ctx, out) => { tone(ctx, out, 0, [300, 90], 0.3, 0.6); noise(ctx, out, 0, 0.08, 17, "lowpass", 900, 0.7, [[0.004, 0.5], [0.08, 0]]); } },
+  pop: { seconds: 0.3, draw: (ctx, out) => { glide(ctx, out, 0, [[0, 400], [0.06, 1400]], 0.12, 0.5); noise(ctx, out, 0, 0.04, 19, "bandpass", 2500, 1, [[0.002, 0.3], [0.04, 0]]); } },
+  zip: { seconds: 0.6, draw: (ctx, out) => { noise(ctx, out, 0, 0.5, 23, "bandpass", 2000, 2, [[0.05, 0.5], [0.45, 0.2], [0.5, 0]]); glide(ctx, out, 0, [[0, 300], [0.45, 1800]], 0.5, 0.12, "sawtooth"); } },
+  swish: { seconds: 0.45, draw: (ctx, out) => noise(ctx, out, 0, 0.4, 29, "bandpass", 1600, 1.2, [[0.12, 0.6], [0.4, 0]]) },
+  tiptoe: { seconds: 1.3, draw: (ctx, out) => { [0, 0.3, 0.6, 0.9].forEach((at, i) => tone(ctx, out, at, [988, 1319, 988, 1175][i]!, 0.18, 0.22, "triangle", 0.002)); } },
+  squeak: { seconds: 0.4, draw: (ctx, out) => glide(ctx, out, 0, [[0, 1800], [0.1, 2600], [0.25, 2200]], 0.3, 0.2) },
+  munch: { seconds: 1.2, draw: (ctx, out) => { for (let i = 0; i < 4; i++) noise(ctx, out, 0.05 + i * 0.27, 0.12, 31 + i, "bandpass", 2200, 0.8, [[0.005, 0.7], [0.12, 0]]); } },
+  cart: { seconds: 2.4, draw: (ctx, out) => {
+    // bullock hooves, clip-clop, over a wooden wheel creak
+    for (let i = 0; i < 8; i++) { const at = 0.1 + i * 0.28; noise(ctx, out, at, 0.06, 41 + i, "bandpass", i % 2 ? 900 : 650, 3, [[0.003, 0.7], [0.06, 0]]); }
+    glide(ctx, out, 0.4, [[0, 180], [0.6, 220], [1.2, 170]], 1.6, 0.05, "sawtooth");
+  } },
+  market: { seconds: 3, draw: (ctx, out) => {
+    // a soft hubbub: formant-filtered noise murmurs plus a few distant calls
+    noise(ctx, out, 0, 3, 47, "bandpass", 700, 1.5, [[0.4, 0.35], [2.6, 0.35], [3, 0]]);
+    const r = rng(48);
+    for (let i = 0; i < 5; i++) { const at = 0.2 + r() * 2.4; glide(ctx, out, at, [[0, 300 + r() * 150], [0.3, 420 + r() * 200]], 0.35, 0.05, "triangle"); }
+  } },
+  crow: { seconds: 1.4, draw: (ctx, out) => {
+    // "caw caw": raspy sawtooth through a nasal band-pass
+    for (const at of [0.05, 0.6]) {
+      const o = ctx.createOscillator(); o.type = "sawtooth";
+      o.frequency.setValueAtTime(620, at); o.frequency.linearRampToValueAtTime(520, at + 0.35);
+      const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1300; f.Q.value = 3;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.5, at + 0.03); g.gain.linearRampToValueAtTime(0, at + 0.38);
+      o.connect(f).connect(g).connect(out); o.start(at); o.stop(at + 0.4);
+    }
+  } },
 };
 
-export const SFX_SECONDS: Record<SfxId, number> = Object.fromEntries(Object.entries(SOUNDS).map(([k, v]) => [k, v.seconds])) as Record<SfxId, number>;
+/** Bundled recordings (Vite hashes them into the build). */
+const SAMPLES = import.meta.glob("./sounds/*.ogg", { query: "?url", import: "default", eager: true }) as Record<string, string>;
+const sampleUrl = (id: SfxId) => SAMPLES[`./sounds/${id}.ogg`];
+
+/** Ids that have a recording, for the Studio's sound list. */
+export const RECORDED = SFX_IDS.filter((id) => sampleUrl(id));
 
 async function render(seconds: number, draw: (ctx: Ctx, out: AudioNode) => void): Promise<string> {
   const ctx = new OfflineAudioContext(1, Math.ceil(seconds * SR), SR);
@@ -131,11 +198,24 @@ async function render(seconds: number, draw: (ctx: Ctx, out: AudioNode) => void)
 }
 
 const cache = new Map<string, Promise<string>>();
+const sfxCache = new Map<SfxId, Promise<{ url: string; seconds: number }>>();
 
-/** Blob URL of one synthesized effect (cached for the page's lifetime). */
-export function sfxUrl(id: SfxId): Promise<string> {
-  if (!cache.has(id)) cache.set(id, render(SOUNDS[id].seconds, SOUNDS[id].draw));
-  return cache.get(id)!;
+/** One effect: its URL and length. Recorded if bundled, else synthesized (cached for the page's lifetime). */
+export function sfx(id: SfxId): Promise<{ url: string; seconds: number }> {
+  if (!sfxCache.has(id)) {
+    sfxCache.set(id, (async () => {
+      const url = sampleUrl(id);
+      if (url) {
+        const ctx = new OfflineAudioContext(1, 1, SR);
+        const buf = await ctx.decodeAudioData(await (await fetch(url)).arrayBuffer());
+        return { url, seconds: buf.duration };
+      }
+      const s = SYNTH[id];
+      if (!s) throw new Error(`no sample or synth for sound "${id}"`);
+      return { url: await render(s.seconds, s.draw), seconds: s.seconds };
+    })());
+  }
+  return sfxCache.get(id)!;
 }
 
 export const AMBIENCE_SECONDS = 16;

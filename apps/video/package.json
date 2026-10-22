@@ -8,7 +8,8 @@
     "build": "vite build",
     "typecheck": "tsc -p .",
     "art": "node scripts/generate-art.mjs",
-    "rig": "node scripts/rig-art.mjs"
+    "rig": "node scripts/rig-art.mjs",
+    "sounds": "python3 scripts/build-sounds.py"
   },
   "dependencies": {
     "@banyan/core": "workspace:*",

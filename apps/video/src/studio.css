@@ -100,6 +100,7 @@ a { color: var(--leaf); }
 .who { font-size: 12px; font-weight: 700; padding-top: 6px; }
 .who.AJJA { color: var(--ajja); }
 .who.KID { color: var(--kid); }
+.who.CAST { color: var(--leaf); }
 
 .voices { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
 .voices button { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px; cursor: pointer; text-align: left; min-height: 44px; }
@@ -115,3 +116,4 @@ input[type="range"] { width: 100%; accent-color: var(--leaf); }
 .list button:hover { background: var(--bg); }
 details > summary { cursor: pointer; padding: 4px 0; }
 .script li.sfx { background: var(--bg); }
+.script li.scene { background: var(--bg); border-top: 2px solid var(--line); margin-top: 6px; }

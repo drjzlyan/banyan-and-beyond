@@ -1,4 +1,4 @@
-import { planShots, type ChapterRole, type PreparedClip, type SfxId } from "@banyan/core";
+import { SFX, endsWithLesson, opensWithJingle, planShots, type ChapterRole, type PreparedClip, type SfxId } from "@banyan/core";
 import { useMemo } from "react";
 // @remotion/media's Audio: the browser renderer rejects remotion's Html5Audio ("<Html5Audio> is not supported")
 import { Audio } from "@remotion/media";
@@ -39,14 +39,15 @@ export type BanyanVideoProps = {
   bedSeconds?: number;
   /** little interface sounds: a pop for each sound word, a sparkle for the lesson, a whoosh as the iris closes */
   ui?: { pop?: string; sparkle?: string; whoosh?: string } | null;
+  /** the story's characters, for caption names and colours */
+  cast?: { id: string; name: string; kind: string }[];
 };
 
 /** The comic "sound word" shown with each effect, so kids can read along with the sound. */
-const SOUND_WORD: Record<SfxId, string> = {
-  birds: "Tweet tweet!", wind: "Whoosh!", rain: "Pitter patter", river: "Gurgle gurgle", bell: "Ding dong!",
-  crickets: "Chirp chirp", footsteps: "Tap tap tap", drum: "Dhin dhin!", flute: "La la la", chime: "Twinkle!",
-  splash: "Splish splash!", knock: "Knock knock!",
-};
+const SOUND_WORD = (id: SfxId) => SFX[id].word;
+
+/** Caption colours: Ajja brown, the Kid blue, each story character its own. */
+const CAST_TONES = ["#b4462b", "#2f7d4a", "#7a3fa0", "#b07a12"];
 
 const W = 1280;
 const H = 720;
@@ -66,11 +67,12 @@ export function BanyanVideo(props: BanyanVideoProps) {
   const active = cues.map((c) => ({ ...c, level: cueLevel(time, c.at, Math.max(2.2, c.seconds)) })).filter((c) => c.level > 0);
   const level = (id: SfxId) => active.filter((c) => c.id === id).reduce((m, c) => Math.max(m, c.level), 0);
   const open = clip ? (props.mouth[Math.min(frame, props.mouth.length - 1)] ?? 0) : 0;
-  const role = props.role ?? "final";
+  const role = props.role ?? "single";
+  const lesson = endsWithLesson(role);
   const intro = props.intro ?? 3.2;
   const outro = props.outro ?? 8;
   // the lesson card belongs to the end of the whole episode, not to every chapter
-  const showMoral = role === "final" && time > props.duration - outro && props.duration > 20;
+  const showMoral = lesson && time > props.duration - outro && props.duration > 20;
   const rain = level("rain");
   const wind = level("wind");
 
@@ -83,19 +85,23 @@ export function BanyanVideo(props: BanyanVideoProps) {
 
   const storybook = hasStorybookArt();
   const shots = useMemo(
-    () => (storybook ? planShots(props.clips, cues, props.duration, { establishSeconds: intro, outroSeconds: role === "final" ? outro : 0 }) : []),
-    [storybook, props.clips, cues, props.duration, intro, outro, role],
+    () => (storybook ? planShots(props.clips, cues, props.duration, { establishSeconds: intro, outroSeconds: lesson ? outro : 0 }) : []),
+    [storybook, props.clips, cues, props.duration, intro, outro, lesson],
   );
   // the sky moves from afternoon to night across the whole episode, so joined chapters flow on
   const count = props.chapterCount ?? 1;
   const skyProgress = props.chapterCount ? Math.min(1, ((props.chapterNo ?? 1) - 1 + progress) / count) : progress;
-  const hits = jingleHits(role === "first" ? "intro" : "sting");
+  const hits = jingleHits(opensWithJingle(role) ? "intro" : "sting");
+  // until the story world is drawn, Ajja performs the characters' lines under the banyan
+  const stage = (sp: string) => (sp === "KID" ? "KID" : "AJJA") as "AJJA" | "KID";
+  const staged = useMemo(() => props.clips.map((c) => ({ ...c, speaker: stage(c.speaker) })), [props.clips]);
+  const castOf = (sp: string) => props.cast?.findIndex((c) => c.id === sp) ?? -1;
   const cueStart = (id: SfxId) => active.find((c) => c.id === id)?.at ?? 0;
 
   return (
     <AbsoluteFill style={{ background: skyBottom, fontFamily: "'Baloo 2', 'Comic Sans MS', 'Trebuchet MS', sans-serif", overflow: "hidden" }}>
       {storybook && (
-        <ArtScene time={time} progress={skyProgress} clips={props.clips} shots={shots} speaker={clip?.speaker ?? null} open={open}
+        <ArtScene time={time} progress={skyProgress} clips={staged} shots={shots} speaker={clip ? stage(clip.speaker) : null} open={open}
           excited={clip?.speaker === "KID" && /[?!]\s*$/.test(clip.text)} level={level} cueStart={cueStart} />
       )}
       {/* fallback scene drawn in code, used until the Inspyry art exists (see art/manifest.json) */}
@@ -178,7 +184,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
                 fill="#ffd23f" stroke="#3b2a17" strokeWidth={3} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             </svg>
             <div style={{ position: "relative", background: "#fff7d6", border: "5px solid #3b2a17", borderRadius: 26, padding: "6px 22px",
-              fontSize: 46, fontWeight: 800, color: "#c2410c", boxShadow: "6px 6px 0 #3b2a17", whiteSpace: "nowrap" }}>{SOUND_WORD[c.id]}</div>
+              fontSize: 46, fontWeight: 800, color: "#c2410c", boxShadow: "6px 6px 0 #3b2a17", whiteSpace: "nowrap" }}>{SOUND_WORD(c.id)}</div>
           </div>
         );
       })}
@@ -186,7 +192,9 @@ export function BanyanVideo(props: BanyanVideoProps) {
       {/* caption bubble: pops up with each line, a tail points at the speaker, the spoken word bounces */}
       {!showMoral && clip && (() => {
         const kid = clip.speaker === "KID";
-        const tone = kid ? "#2563a8" : "#8a5a2b";
+        const ci = castOf(clip.speaker);
+        const tone = kid ? "#2563a8" : ci >= 0 ? CAST_TONES[ci % CAST_TONES.length]! : "#8a5a2b";
+        const name = kid ? "Kid" : ci >= 0 ? props.cast![ci]!.name : "Ajja";
         const pop = spring({ frame: frame - Math.round(clip.start * FPS), fps: FPS, config: { damping: 13, stiffness: 190 } });
         return (
           <div style={{ position: "absolute", left: 120, right: 120, bottom: 26, display: "flex", justifyContent: "center", zIndex: 6 }}>
@@ -203,7 +211,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
                 position: "relative", background: "rgba(255,251,240,0.97)", border: `5px solid ${tone}`, borderRadius: 28,
                 padding: "10px 26px 14px", fontSize: 44, lineHeight: 1.3, color: "#2c2318", textAlign: "center", maxWidth: 1040, boxShadow: "0 6px 0 rgba(59,42,23,0.18)",
               }}>
-                <span style={{ fontSize: 26, fontWeight: 800, color: tone, marginRight: 12 }}>{kid ? "Kid" : "Ajja"}</span>
+                <span style={{ fontSize: 26, fontWeight: 800, color: tone, marginRight: 12 }}>{name}</span>
                 {clip.words.map((w, i) => {
                   const lit = time >= w.start && time < w.end;
                   const b = lit ? Math.sin(Math.min(1, (time - w.start) / 0.18) * Math.PI) : 0;
@@ -226,7 +234,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
         // a little bump on each note of "Ban-yan and Be-yond", a big one on the landing
         const bump = hits.words.reduce((m, at) => Math.max(m, t >= at && t < at + 0.22 ? 1 - (t - at) / 0.22 : 0), 0);
         const land = t >= hits.final ? Math.max(0, 1 - (t - hits.final) / 0.5) : 0;
-        const first = role === "first";
+        const first = opensWithJingle(role);
         // the logo arrives alone and bounces on the name-notes; on the landing it lifts and the title ribbon pops in under it
         const ribbonAt = first ? hits.final : hits.words[2]!;
         const ribbon = pop(ribbonAt, 9);
@@ -242,7 +250,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
             {ribbon > 0.01 && (
               <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, ${first ? 150 : 115}px) scale(${ribbon})`,
                 background: "#2f6b3a", border: "5px solid #3b2a17", borderRadius: 24, padding: "8px 34px 12px", textAlign: "center", boxShadow: "8px 8px 0 #3b2a17", whiteSpace: "nowrap" }}>
-                {first && <div style={{ fontSize: 28, color: "#fff4c2", fontWeight: 700 }}>{props.episodeTitle ?? "Banyan and Beyond"}</div>}
+                {first && <div style={{ fontSize: 28, color: "#fff4c2", fontWeight: 700 }}>{props.chapterNo ? (props.episodeTitle ?? "Banyan and Beyond") : "Banyan and Beyond"}</div>}
                 <div style={{ fontSize: first ? 60 : 54, color: "#ffffff", fontWeight: 800, lineHeight: 1.1 }}>{props.chapterNo ? `Chapter ${props.chapterNo}` : props.title}</div>
               </div>
             )}
@@ -298,7 +306,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
           <Audio src={props.jingleUrl} volume={0.65} />
         </Sequence>
       )}
-      {role === "final" && props.outroJingleUrl && (
+      {lesson && props.outroJingleUrl && (
         <Sequence from={Math.round((props.duration - outro) * FPS)} durationInFrames={Math.round((props.outroJingleSeconds ?? outro) * FPS)}>
           <Audio src={props.outroJingleUrl} volume={0.65} />
         </Sequence>
@@ -306,7 +314,7 @@ export function BanyanVideo(props: BanyanVideoProps) {
       {/* the music bed runs from the end of the intro to the outro, dipping under every line */}
       {props.bedUrl && (() => {
         const loop = props.bedSeconds ?? 24;
-        const from = intro, to = role === "final" ? props.duration - outro : props.duration;
+        const from = intro, to = lesson ? props.duration - outro : props.duration;
         return Array.from({ length: Math.max(0, Math.ceil((to - from) / loop)) }).map((_, i) => {
           const at = from + i * loop;
           return (
@@ -321,12 +329,12 @@ export function BanyanVideo(props: BanyanVideoProps) {
           <Audio src={props.ui!.pop!} volume={0.5} />
         </Sequence>
       ))}
-      {props.ui?.sparkle && role === "final" && (
+      {props.ui?.sparkle && lesson && (
         <Sequence from={Math.round((props.duration - outro) * FPS)} durationInFrames={Math.round(1.2 * FPS)}>
           <Audio src={props.ui.sparkle} volume={0.6} />
         </Sequence>
       )}
-      {props.ui?.whoosh && role !== "final" && props.duration > 20 && (
+      {props.ui?.whoosh && !lesson && props.duration > 20 && (
         <Sequence from={Math.round((props.duration - 1.4) * FPS)} durationInFrames={Math.round(0.9 * FPS)}>
           <Audio src={props.ui.whoosh} volume={0.5} />
         </Sequence>

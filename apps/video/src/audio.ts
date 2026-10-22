@@ -1,4 +1,4 @@
-import { SFX_GAP_SECONDS, pauseAfter, type PreparedClip, type SfxId } from "@banyan/core";
+import { SFX, SFX_GAP_SECONDS, pauseAfter, triggerWord, type PreparedClip, type SfxId } from "@banyan/core";
 
 export const FPS = 24;
 
@@ -45,14 +45,17 @@ export function wavBlob(buf: AudioBuffer): Blob {
   return new Blob([out], { type: "audio/wav" });
 }
 
-const pitchOf = (speaker: string, ajja: number, kid: number) => (speaker === "KID" ? kid : ajja);
+/** Ajja's and the Kid's pitch come from the Voice Lab; a story character's is stored with its clip. */
+const pitchOf = (clip: PreparedClip, ajja: number, kid: number) => (clip.speaker === "KID" ? kid : clip.speaker === "AJJA" ? ajja : (clip.pitch ?? ajja));
 
 export interface TimedCue { id: SfxId; at: number }
 
 /**
- * Resample every clip by its speaker's pitch (Ajja down for warmth, Kid up for youth),
- * then rebuild the timeline so captions, mouth and video length stay in sync. Each sound
- * cue gets SFX_GAP_SECONDS of room before the line it belongs to (the sound tails under it), and
+ * Resample every clip by its speaker's pitch (Ajja down for warmth, Kid up for youth, each story
+ * character its own), then rebuild the timeline so captions, mouth and video length stay in sync.
+ * A "beat" sound (animal, music, weather) gets SFX_GAP_SECONDS of room before its line (it tails
+ * under it); an "overlay" sound (boing, splash, giggle) lands on the word that triggered it, under
+ * the voice, with no gap. And
  * each line is followed by a storyteller's pause (core pauseAfter: a real wait after a question
  * to the children, a held breath before a reveal, quick turns in banter).
  */
@@ -64,12 +67,19 @@ export async function pitchClips(
   const timed: TimedCue[] = [];
   let cursor = 0;
   const place = (i: number) => {
-    for (const c of cues) if (c.before === i) { timed.push({ id: c.id, at: cursor }); cursor += SFX_GAP_SECONDS; }
+    for (const c of cues) if (c.before === i && (SFX[c.id].kind === "beat" || i >= clips.length)) { timed.push({ id: c.id, at: cursor }); cursor += SFX_GAP_SECONDS; }
+  };
+  const overlay = (i: number, clip: PreparedClip) => {
+    for (const c of cues) if (c.before === i && SFX[c.id].kind === "overlay") {
+      const w = triggerWord(c.id, clip.text);
+      // a touch early, so the sound and the word hit together
+      timed.push({ id: c.id, at: Math.max(clip.start, (w >= 0 ? clip.words[w]?.start ?? clip.start : clip.start) - 0.05) });
+    }
   };
   try {
     for (const [i, clip] of clips.entries()) {
       place(i);
-      const rate = pitchOf(clip.speaker, ajjaPitch, kidPitch);
+      const rate = pitchOf(clip, ajjaPitch, kidPitch);
       const decoded = await ctx.decodeAudioData(await (await fetch(clip.url)).arrayBuffer());
       const length = Math.ceil(decoded.length / rate);
       const offline = new OfflineAudioContext(1, length, decoded.sampleRate);
@@ -81,18 +91,20 @@ export async function pitchClips(
       const rendered = await offline.startRendering();
       const duration = rendered.length / rendered.sampleRate;
       const scale = duration / (clip.end - clip.start);
-      out.push({
+      const pitched: PreparedClip = {
         ...clip,
         url: URL.createObjectURL(wavBlob(rendered)),
         start: cursor,
         end: cursor + duration,
         words: clip.words.map((wd) => ({ text: wd.text, start: cursor + (wd.start - clip.start) * scale, end: cursor + (wd.end - clip.start) * scale })),
-      });
+      };
+      out.push(pitched);
+      overlay(i, pitched);
       cursor += duration + (i < clips.length - 1 ? pauseAfter(clip, clips[i + 1]) : 0);
     }
     place(clips.length);
   } finally {
     await ctx.close();
   }
-  return { clips: out, duration: cursor, cues: timed };
+  return { clips: out, duration: cursor, cues: timed.sort((a, b) => a.at - b.at) };
 }

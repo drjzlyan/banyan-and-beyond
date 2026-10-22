@@ -94,6 +94,9 @@ export interface TimedClip extends ClipPart {
   url: string;
   speaker: Speaker;
   words: WordTiming[];
+  /** browser pitch stored with a story character's line (Ajja's and the Kid's come from the Voice Lab) */
+  pitch?: number;
+  voice?: string;
 }
 
 /** A voiced, timed clip ready for the Studio renderer (what the worker stores in clips_json). */

@@ -9,10 +9,11 @@ import "./studio.css";
 type Tab = "episodes" | "voices" | "system";
 const FILTERS = [
   { key: "", label: "All" },
-  { key: "chapter-pending", label: "Voicing" },
+  { key: "chapter-pending", label: "Writing + voicing" },
   { key: "pending", label: "To render" },
   { key: "approved", label: "Approved" },
   { key: "posted", label: "Posted" },
+  { key: "archived", label: "Archived" },
 ];
 
 const readUrl = () => {
@@ -104,7 +105,8 @@ function EpisodeList({ onOpen }: { onOpen: (id: string) => void }) {
     } catch (e) { say("err", e instanceof ApiError ? e.message : String(e)); }
   }
 
-  const shown = (episodes ?? []).filter((e) => !filter || e.status === filter);
+  // archived episodes only show under their own filter
+  const shown = (episodes ?? []).filter((e) => (filter ? e.status === filter : e.status !== "archived"));
   return (
     <>
       <div className="card">
@@ -114,14 +116,14 @@ function EpisodeList({ onOpen }: { onOpen: (id: string) => void }) {
           </div>
           <div className="row">
             <button className="btn" onClick={() => void load()}>Refresh</button>
-            <button className="btn primary" onClick={() => void makeEpisode()}>New episode</button>
+            <button className="btn primary" onClick={() => void makeEpisode()}>New story</button>
           </div>
         </div>
       </div>
       <Note note={note} />
       <div className="card">
         {episodes === null ? <p className="muted">Loading…</p>
-          : shown.length === 0 ? <p className="muted">{episodes.length ? "No episodes with this status." : "No episodes yet. The nightly cron starts one, or press New episode."}</p>
+          : shown.length === 0 ? <p className="muted">{episodes.length ? "No episodes with this status." : "No episodes yet. The nightly cron starts one, or press New story."}</p>
           : (
             <ul className="list">
               {shown.map((e) => (
