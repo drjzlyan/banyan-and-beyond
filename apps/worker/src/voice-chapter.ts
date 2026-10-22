@@ -54,7 +54,11 @@ export async function voiceNext(env: Env): Promise<string> {
   const ep = await env.DB.prepare("SELECT outline_json FROM episodes WHERE id = ?").bind(pending.episodeId).first<{ outline_json: string }>();
   if (!ep) throw new Error(`episode ${pending.episodeId} missing`);
   const outline = JSON.parse(ep.outline_json) as EpisodeOutline;
-  if (outline.format !== "story") return `skipped legacy 8-chapter episode ${pending.episodeId}; archive it in the Studio`;
+  if (outline.format !== "story") {
+    // the owner discarded the old 8-chapter format (2026-10-22): archive it, or it would hold the queue every night
+    await env.DB.prepare("UPDATE episodes SET status = 'archived', updated_at = ? WHERE id = ?").bind(now(), pending.episodeId).run();
+    return `archived legacy 8-chapter episode ${pending.episodeId}; ${await voiceNext(env)}`;
+  }
   const speakers = outline.plan?.cast.map((c) => c.id) ?? [];
 
   let lines;

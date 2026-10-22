@@ -1,10 +1,10 @@
 # Banyan and Beyond — progress, decisions and plan
 
-_Last updated: 2026-10-13 (pre-live-run fixes, branch `fix/first-live-run`). Keep current at the end of every session._
+_Last updated: 2026-10-22 (standalone stories, plan-first story engine, real sounds; branch `story-world`, not merged). Keep current at the end of every session._
 
 ## 1. Goal
 
-YouTube channel **Banyan and Beyond**: Ajja tells ~48-min episodes (8 × ~6-min chapters, owner's choice 2026-10-13; originally 1 hr) for kids 6–12, in simple words, with browser-synthesized sound effects and an animated scene. Social psychology, morality, good behaviour — right-rooted, open-minded. Storybook SVG scenes, two voices (Ajja + Kid), API-assisted YouTube upload.
+YouTube channel **Banyan and Beyond**: standalone **~7-min story videos** for kids 6–12 (owner's choice 2026-10-22; before that 8 × 6-min chapters joined into ~48 min). Ajja narrates under the banyan, the Kid listens and reacts, and the story's characters speak in their own voices. Real CC0 sound effects, an animated scene and, next, an acted-out story world. The owner's goal: videos kids can't stop watching. Social psychology, morality, good behaviour — right-rooted, open-minded. Storybook SVG scenes, two voices (Ajja + Kid), API-assisted YouTube upload.
 
 ## 2. Hard constraints (never violate)
 
@@ -25,13 +25,15 @@ YouTube channel **Banyan and Beyond**: Ajja tells ~48-min episodes (8 × ~6-min 
 | YouTube resumable upload + finalize cron | ✅ P4 done, OAuth/secrets/live test deferred |
 | Pre-live-run review: regenerate, approval gate, Range, free-tier limits | ✅ fixed on `fix/first-live-run` (not yet merged/deployed) |
 | Studio v2: Voice Lab, chapter analysis, System tab (chotavc-style) | ✅ on `fix/first-live-run`, UI-tested against a mock; not deployed |
-| Simple kid-friendly scripts, SFX cues, browser-synthesized sound, animated scene, Preview | ✅ on `fix/first-live-run`; headless render verified (WebM); not deployed |
+| Simple kid-friendly scripts, SFX cues, browser-synthesized sound, animated scene, Preview | ✅ merged to `main` |
+| Standalone stories, plan-first engine, character voices, 41 sounds (25 recorded), favicon | ✅ on `story-world`; live story generated, headless render verified; **not merged** |
+| Acted-out story world (cast rigs, locations, scene director) | ⏳ Phase 1 rig pilot needs owner go-ahead + Inspyry credits |
 
 Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https://banyan-and-beyond.dbldr.app/health`.
 
 ## 4. Neuron budget (do not re-derive)
 
-~6-min chapter ≈ 840 words ≈ 4,800 chars → 2 nights each at the 3,000-char nightly budget (Aura-2 ≈ 2,727 neurons/1k chars vs 10k/day free; scripting shares that budget). Episode ready in about 16–24 nights (scripting nights spend 3–9 gpt-oss calls of the same budget, so they voice less); 2 staggered in flight.
+A ~7-min story ≈ 850–950 words ≈ 4,500–5,200 TTS chars → 2 nights of voicing at the 3,000-char nightly budget (Aura-2 ≈ 2,727 neurons/1k chars vs 10k/day free). The scripting night also spends the plan + one gpt-oss call per scene (measured live: 12 calls with retries), so it voices less: a story is ready in about **2–3 nights, ≈ 2–3 videos a week**. Extra character voices cost nothing extra (same chars). 2 stories in flight.
 
 ## 5. Session log (oldest first)
 
@@ -145,9 +147,25 @@ Live URLs: Studio `https://banyan-and-beyond.dbldr.app/studio/` · health `https
   - **Renderer finding:** content placed outside a transformed element's box is not drawn, so keep such parts in the layout.
   - **History:** this round was first built in a cloud session whose commits could not be pushed. It was replayed on the Mac from the session transcript, with the art re-fetched from Inspyry by id, and the files match the cloud versions.
 
+- **2026-10-22 (make it addictive: standalone stories, plan-first engine, real sounds)** — The owner found the videos boring to watch and to hear and asked for a favicon, better storytelling, complete animation and well-chosen sounds. Diagnosis from the live D1 script (episode 1, chapter 4): the same "secret box" was found and solved **four times** in one chapter, the kite fell and was rescued twice, Gopal was both the cow and Meena's brother, the Kid narrated events ("I tried to catch it"), there were four "What would YOU do? Hmm?", banned metaphors got through, and cues were filler (`splash` before a moo, `drum` before Meena spoke). Cause: each part was written blind from the last six lines and replayed the whole prompt checklist. **Owner decisions** (grilled via questions): act the story out in a story world; Ajja and the Kid as bookends and cutaways; **standalone 6–8 min stories** instead of 48-min episodes; real CC0 samples (the repo may go private, which would also allow royalty-free packs); cast art from Inspyry split into cut-out rigs after a pilot (owner tops up credits); 3–4 extra Aura-2 voices for characters; discard the in-flight 48-min episode. Plan file: `~/.claude/plans/add-favicon-fix-the-calm-quiche.md`. Built on branch `story-world` (Phase 0):
+  - **Favicon:** a simple banyan badge (`apps/video/public/favicon.svg` + apple-touch PNG); the Worker redirects `/favicon.ico`.
+  - **One story per video:** a story is an episode with one chapter row, so D1, workflows, approval, upload and the 2-in-flight cap are unchanged. New `"single"` timeline role (full jingle + lesson card + outro in one video). One MP4 uploads without ffmpeg concat; no chapter stamps. New `archived` status (Studio button and filter); the nightly engine archives a legacy 8-chapter episode when it meets one, so the old episode stops holding the queue.
+  - **Story engine (`core/generate.ts`):** a bank of ~36 public-domain premises (`core/premises.ts`: Panchatantra, Jataka, Tenali, Birbal, village tales), rotated per theme. `planStory` writes a validated plan: cast with fixed ids and kinds, a chorus, a mystery with set-up and pay-off scenes, and 7–8 scenes with location, beat, funny moment and mood. Code tidies number words and Ajja/Kid listed as cast. Then **one call per scene**: measured live, a three-scene call came back at 153 of ~390 words, the same ~150–250-word plateau as before. Each call sees the whole plan, which scenes are done, and where the mystery, chorus and viewer questions go. Lines are `AJJA:` (narrator), `KID:` (listener only) and character ids (`MEENA:`); `SCENE: n` rows mark scenes.
+  - **Code checks (`core/story.ts storyProblems`):** replayed lines (content-word overlap), the Kid narrating, value similes ("kindness pours like rain"), viewer questions (1–3 per story); stage directions (`*whistles*`) are stripped. Studio chips: Characters talk, No replays.
+  - **Live result** ("Water for the Thirsty Puppy", kindness, 12 calls, 329 s): 850 words, ~6.4 min, 4,507 TTS chars, every craft check passing; four characters (Gita, Kuku the dog, Anjali, Ravi), two failed tries, then the hand-chain twist, the chorus three times. Remaining weaknesses seen: some similes and stage-direction lines from the model, Kid lines in the final scene drifting toward narration.
+  - **Character voices:** each cast kind has a default Aura-2 voice and pitch (`core/world.ts CAST_KINDS`; none collides with Ajja's pluto or the Kid's iris), overridable per kind in Voice Lab settings (`cast`, no UI yet). Clips store their pitch. **Ear check needed.** Until the story world exists, Ajja performs the characters' lines on screen; captions show each character's name in its own colour.
+  - **Sounds (`core/sounds.ts`):** 41 ids (animals, cartoon foley, reactions, world), each with the words that justify it. Model cues survive only if their line or the next names the sound. Strong sound or action words add cues ("splashed", "giggled", "slipped"). An animal's sound plays the first time it is named. The same sound never repeats within 8 lines or more than 3 times (live, the model put `bark` before almost every line the puppy spoke). **Overlay** sounds land on the word that triggers them, under the voice; **beat** sounds keep the 1.2 s gap.
+  - **Recorded samples:** 25 CC0 / public-domain files (Wikimedia Commons, licence checked through its API, and Kenney packs), cut and normalised to −16 LUFS, mono Opus, 440 KB total. Sources, licences and cuts are in `apps/video/sounds.json`; `pnpm --filter @banyan/video sounds` rebuilds them. Wind, music and cartoon foley (boing, slide-whistle slip, zip, swish, squeak, munch, cart, market, crow) are synthesized. The owner signs off on the private **Banyan Sound Check** page (https://claude.ai/artifact/MwtYa7YWxjKbkDbYd4vrRf; verdicts in its db collection `verdicts`).
+  - **Studio:** the card shows the story plan (want, chorus, cast with voices, mystery), scene headers and character names.
+  - **Cleanup:** the code-drawn fallback scene is removed from `BanyanVideo` (~300 lines).
+  - **Verified:** 84 tests, typecheck, build and wrangler dry-run. A headless render of the live story through the real `pitchClips` path (silent voices, 45 s in 62 s) confirmed character captions, sound-word bursts and samples in the mix (the bark at its cue: −19 dB against a −46 dB bed). Dev harnesses `apps/video/dev/story.tsx` and `dev/sounds.tsx` are gitignored.
+  - **Not done yet:** expressive acting (mouth shapes, eyebrows, gestures) needs the rig work in Phase 1. The dholak pick is still open. **Phase 1 (rig pilot) and Phase 2 (story world)** follow the plan file.
+
 ## 6. Deferred owner items (everything else is built)
 
-0. **Review + merge `fix/first-live-run`** — merging to `main` deploys. Re-render any chapter rendered before this change, so its `video_duration` gets recorded.
+0. **Review + merge `story-world`** — merging to `main` deploys. After deploy the first nightly run archives the old 8-chapter episode and starts a standalone story (or press New story). Use the Sound Check page to mark sounds, and Voice Lab or a first story to ear-check the character voices.
+0b. **Phase 1 go-ahead:** the rig pilot spends ~10 Inspyry credits on one story character; the full cast and locations need ~80–120 more after you approve the look.
+0c. **Dholak pick** (still open, see 2026-10-13/14).
 1. **Ear check** — after deploying the branch: Studio → Voice Lab, pick Ajja and Kid voices and pitch, save, then use Re-voice on chapter 1. Until then use the verification artifact above.
 2. **YouTube OAuth** — create a Google Cloud project, enable YouTube Data API v3, OAuth consent (external) + desktop/web client, run the consent flow to get a refresh token with `youtube.upload` scope.
 3. **Secrets** — `gh secret set YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN`, then add them to `deploy.yml`'s secrets block (currently ADMIN_TOKEN only so deploys stay green).
