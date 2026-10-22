@@ -209,6 +209,21 @@ A ~7-min story ≈ 850–950 words ≈ 4,500–5,200 TTS chars → 2 nights of v
   - **Monkey:** still open (the owner rejected the siamang). Three voiced takes in the monkey's own Aura voice are on the Round 2 page.
   - **Puppet look verdict:** not given yet.
 
+- **2026-10-23 (puppet motion with physics):** the owner found the pilot "too puppetty" and asked for smooth movement that respects body physics. The rig was fine; the motion model was the problem (lockstep per-joint sines, no weight, sliding feet, `abs(sin)` "jumps").
+  - **`core/motion.ts`** (`simulateMotion`, `legIk`; 9 tests): a fixed-step simulation (1/240 s), sampled per frame, so random-access rendering stays deterministic.
+    - Joints are damped springs toward each action's pose, stiff at the body and loose at the hands and head. Moods scale the springs: sad is sluggish, cheer is bouncy.
+    - Legs are two-bone IK to planted feet. A foot steps only when it falls behind the hips, with short quick child steps (0.28 s, lift 18 units). The arc has zero vertical speed at both ends.
+    - Soft IK and soft knees remove knee pops near full extension.
+    - Weight shifts onto the standing foot, the body bobs and leans into acceleration, and the head lags.
+    - Jumps: a 0.22 s crouch, a gravity arc, legs tucked by height so neither take-off nor landing snaps, then a squash and settle.
+    - Joint speed is capped at 400°/s so nothing strobes at 24 fps. Blinks come at seeded irregular intervals.
+    - It is driven by an **action schedule** (`walk` to x, `talk`, `wave`, `jump`, `cheer`, `sad`…), which is the interface the Phase 2 scene director will feed.
+  - **The "no pops" test checks joint acceleration**, not speed: a smooth 40° knee flex through a step is right, a sudden change in speed is not.
+  - **Re-cut the girl with knees and wrists.** Joints are rounded at the limb's own half-width plus its outline. Hands and feet are boxes, because wide circles had carried chunks of the neighbouring segment as lumps. Clip shapes are separate `<path>`s, because one combined path cancelled the overlap into a hole at the ankles. Arms and head are children of the torso.
+  - **`Puppet.tsx`** is now a generic joint tree driven by a `MotionFrame`.
+  - The demo is one continuous 23 s performance, rendered at about 0.2× real time. It is republished at the same Puppet Pilot Review link, with round 1 for comparison and a video-scale (300 px) version.
+  - **If the owner still finds it stiff,** the next lever is code-drawn bendy (rubber-hose) limbs. That changes the art style, so it is the owner's call.
+
 ## 6. Deferred owner items (everything else is built)
 
 0. **Monkey sound:** pick one of the voiced takes on Sound Check Round 2.
