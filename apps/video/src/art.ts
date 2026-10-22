@@ -11,4 +11,3 @@ export const ART: Record<string, string> = Object.fromEntries(
 );
 
 /** The storybook scene needs at least the two storytellers and the tree. */
-export const hasStorybookArt = () => !!(ART.ajja && ART.kid && ART.banyan);
