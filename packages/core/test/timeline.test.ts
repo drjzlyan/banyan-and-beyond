@@ -17,6 +17,13 @@ describe("chapter bookends", () => {
   });
 });
 
+describe("standalone story", () => {
+  it("gets the full jingle and the lesson card + outro in one video", () => {
+    expect(chapterRole(0, 1)).toBe("single");
+    expect(withBookends([clip(0, 2)], [], 10, "single")).toMatchObject({ intro: INTRO_FIRST_SECONDS, outro: OUTRO_FINAL_SECONDS, duration: INTRO_FIRST_SECONDS + 10 + OUTRO_FINAL_SECONDS });
+  });
+});
+
 describe("pauseAfter", () => {
   const A = (text: string) => ({ speaker: "AJJA", text });
   const K = (text: string) => ({ speaker: "KID", text });

@@ -1,10 +1,12 @@
 /** YouTube publish helpers: description with chapter timestamps, title rules. */
 
+/** Chapter stamps only make sense for a video of several chapters; a standalone story has none. */
 export function youtubeDescription(title: string, chapters: { title: string; start: number }[], moral: string): string {
   const stamps = chapters
     .map((c) => `${formatTimestamp(c.start)} ${c.title}`)
     .join("\n");
-  return `${title}\n\nA gentle Banyan and Beyond story for children.\n\nChapters:\n${stamps}\n\nMoral: ${moral}\n\nMade for kids aged 6 to 12. A grown-up story, told with love.`;
+  const chapterBlock = chapters.length > 1 ? `\n\nChapters:\n${stamps}` : "";
+  return `${title}\n\nA gentle Banyan and Beyond story for children.${chapterBlock}\n\nMoral: ${moral}\n\nMade for kids aged 6 to 12. A grown-up story, told with love.`;
 }
 
 export function formatTimestamp(totalSeconds: number): string {

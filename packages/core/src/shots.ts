@@ -25,10 +25,12 @@ export const OUTRO_SECONDS = 8;
 /** Start a shot this much before its line so the camera is settling as the voice begins. */
 export const LEAD_SECONDS = 0.25;
 
-type Line = { speaker: "AJJA" | "KID"; start: number; end: number };
+type Line = { speaker: string; start: number; end: number };
 type Cue = { at: number; seconds: number };
 
-const close = (speaker: Line["speaker"]): ShotKind => (speaker === "AJJA" ? "ajja" : "kid");
+// story characters' lines are performed by Ajja under the banyan until the story world is drawn
+const close = (speaker: string): ShotKind => (speaker === "KID" ? "kid" : "ajja");
+const closeUpMin = (speaker: string) => (speaker === "KID" ? CLOSE_UP_MIN_LINE.KID : CLOSE_UP_MIN_LINE.AJJA);
 const isClose = (k: ShotKind) => k === "ajja" || k === "kid";
 
 export function planShots(
@@ -64,7 +66,7 @@ export function planShots(
     // a cue playing over this line keeps the wide shot so its picture stays visible
     const cueOver = cues.some((c) => c.at < line.end && c.at + c.seconds > line.start);
     const cur = shots[shots.length - 1]!;
-    let kind: ShotKind = cueOver ? "wide" : line.end - line.start >= CLOSE_UP_MIN_LINE[line.speaker] ? close(line.speaker) : "two";
+    let kind: ShotKind = cueOver ? "wide" : line.end - line.start >= closeUpMin(line.speaker) ? close(line.speaker) : "two";
     if (kind === cur.kind && e.at - cur.at > MAX_SAME_SHOT) kind = isClose(kind) ? "two" : close(line.speaker);
     // never sit on the listener's close-up while the other one talks: change shot sooner
     const onListener = isClose(cur.kind) && cur.kind !== close(line.speaker);

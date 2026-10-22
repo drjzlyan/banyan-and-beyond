@@ -2,25 +2,29 @@ import { DEFAULT_VOICE_SETTINGS, TTS_BIT_RATE, TTS_MODEL, mergeVoiceSettings, mp
 import type { Env } from "./env.ts";
 
 export interface StoredLineClip {
-  speaker: "AJJA" | "KID";
+  /** AJJA, KID or a story character's id */
+  speaker: string;
   text: string;
   duration: number;
   url: string;
   /** Aura voice that spoke it, so the Studio can flag chapters voiced before a voice change */
   voice?: string;
+  /** browser pitch for a story character's line (Ajja's and the Kid's come from the Voice Lab) */
+  pitch?: number;
 }
 
 /** Speak one dialogue line and keep the mp3 in R2. Throws so the cron loop can pause and resume next night. */
 export async function speakLine(
   env: Env,
   key: string,
-  speaker: "AJJA" | "KID",
+  speaker: string,
   text: string,
   voice: string,
+  pitch?: number,
 ): Promise<StoredLineClip> {
   const audio = await tts(env, voice, text);
   await env.BUCKET.put(key, audio, { httpMetadata: { contentType: "audio/mpeg" } });
-  return { speaker, text, duration: mp3Duration(audio.byteLength), url: `${env.PUBLIC_BASE}/assets/${key}`, voice };
+  return { speaker, text, duration: mp3Duration(audio.byteLength), url: `${env.PUBLIC_BASE}/assets/${key}`, voice, ...(pitch ? { pitch } : {}) };
 }
 
 /** One Aura-2 call. Throws (with the neuron error text intact) so callers can pause till tomorrow. */

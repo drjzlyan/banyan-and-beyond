@@ -11,3 +11,6 @@ export * from "./lifecycle.ts";
 export * from "./analysis.ts";
 export * from "./shots.ts";
 export * from "./timeline.ts";
+export * from "./world.ts";
+export * from "./premises.ts";
+export * from "./sounds.ts";

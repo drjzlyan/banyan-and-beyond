@@ -17,12 +17,20 @@ export const MAX_CHAPTER_VIDEO_BYTES = 95_000_000;
  */
 export const CHAPTER_VIDEO_BITRATE = 1_000_000;
 
+/** Episodes the nightly engine still works on or waits for (posted and archived ones are done). */
+export const isOpenEpisode = (status: string) => status !== "posted" && status !== "archived";
+
 /** Statuses the Studio may set by hand. uploading/posted only come from the publish flow and cron. */
 export function checkStatusChange(
   from: string,
   to: string,
   ctx: { renderedChapters: number; totalChapters: number },
 ): string | null {
+  if (from === "archived") return "an archived episode stays archived";
+  if (to === "archived") {
+    if (from === "uploading" || from === "posted") return `episode is already ${from}`;
+    return null;
+  }
   if (to === "approved") {
     if (from === "uploading" || from === "posted") return `episode is already ${from}`;
     if (from === "chapter-pending" || from === "outline") return "chapters are still being voiced";

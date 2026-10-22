@@ -1,9 +1,11 @@
 import {
   buildOutline,
-  generateChapter,
-  storySoFar,
+  generateStory,
   isNeuronsExhausted,
   layoutLines,
+  pitchFor,
+  planStory,
+  selectPremise,
   selectTheme,
   shortHash,
   splitDialogue,
@@ -19,7 +21,7 @@ import { ensureSchema } from "./schema.ts";
 
 const newId = () => `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** Episodes not yet posted. Two staggered in flight: one voicing while the other waits in the Studio. */
+/** Stories not yet posted (archived ones don't count). Two staggered in flight: one voicing while the other waits in the Studio. */
 const MAX_IN_FLIGHT = 2;
 
 /**
@@ -35,11 +37,11 @@ export async function voiceNext(env: Env): Promise<string> {
   const ai: AiRunner = (model, input) => env.AI.run(model as never, input as never);
 
   const pending = await env.DB.prepare(
-    `SELECT c.episode_id AS episodeId, c.idx AS idx FROM chapters c JOIN episodes e ON e.id = c.episode_id WHERE c.status = 'chapter-pending' ORDER BY e.created_at, c.idx LIMIT 1`,
+    `SELECT c.episode_id AS episodeId, c.idx AS idx FROM chapters c JOIN episodes e ON e.id = c.episode_id WHERE c.status = 'chapter-pending' AND e.status != 'archived' ORDER BY e.created_at, c.idx LIMIT 1`,
   ).first<{ episodeId: string; idx: number }>();
 
   if (!pending) {
-    const open = await env.DB.prepare(`SELECT COUNT(*) n FROM episodes WHERE status != 'posted'`).first<{ n: number }>();
+    const open = await env.DB.prepare(`SELECT COUNT(*) n FROM episodes WHERE status NOT IN ('posted', 'archived')`).first<{ n: number }>();
     if ((open?.n ?? 0) >= MAX_IN_FLIGHT) return `idle: ${open?.n} episodes awaiting studio`;
     return `outlined ${await createOutline(env, {})}`;
   }
@@ -49,28 +51,35 @@ export async function voiceNext(env: Env): Promise<string> {
   }>();
   if (!ch) throw new Error(`chapter row missing for ${pending.episodeId} #${pending.idx}`);
 
+  const ep = await env.DB.prepare("SELECT outline_json FROM episodes WHERE id = ?").bind(pending.episodeId).first<{ outline_json: string }>();
+  if (!ep) throw new Error(`episode ${pending.episodeId} missing`);
+  const outline = JSON.parse(ep.outline_json) as EpisodeOutline;
+  if (outline.format !== "story") return `skipped legacy 8-chapter episode ${pending.episodeId}; archive it in the Studio`;
+  const speakers = outline.plan?.cast.map((c) => c.id) ?? [];
+
   let lines;
   // set when tonight writes a new script: any stored clips belong to the old one and must not be reused
   let rescripted = false;
   try {
-    lines = splitDialogue(ch.spoken);
+    lines = outline.plan ? splitDialogue(ch.spoken, { speakers }) : null;
   } catch {
     lines = null;
   }
   if (!lines) {
-    // script the chapter (two LLM halves); neuron exhaustion pauses until tomorrow
+    // plan, then write the scenes; neuron exhaustion pauses until tomorrow
     try {
-      const ep = await env.DB.prepare("SELECT outline_json FROM episodes WHERE id = ?").bind(pending.episodeId).first<{ outline_json: string }>();
-      if (!ep) throw new Error(`episode ${pending.episodeId} missing`);
-      const outline = JSON.parse(ep.outline_json) as EpisodeOutline;
-      // continuity: chapter 1's opening (who/what the story is about) and the previous chapter's cliffhanger
-      const earlier = pending.idx > 0
-        ? (await env.DB.prepare("SELECT idx, spoken FROM chapters WHERE episode_id = ? AND idx IN (0, ?)").bind(pending.episodeId, pending.idx - 1).all<{ idx: number; spoken: string | null }>()).results
-        : [];
-      const story = storySoFar(earlier.find((r) => r.idx === 0)?.spoken, earlier.find((r) => r.idx === pending.idx - 1)?.spoken);
-      const gen = await generateChapter(ai, outline, pending.idx, { story });
+      if (!outline.plan) {
+        // saved straight away, so a neuron pause while writing scenes does not throw the plan away
+        outline.plan = (await planStory(ai, outline, { rethrow: isNeuronsExhausted })).plan;
+        outline.title = outline.plan.title;
+        await env.DB.prepare("UPDATE episodes SET outline_json = ?, title = ?, updated_at = ? WHERE id = ?")
+          .bind(JSON.stringify(outline), outline.title, now(), pending.episodeId).run();
+        await env.DB.prepare("UPDATE chapters SET title = ? WHERE episode_id = ? AND idx = ?").bind(outline.title, pending.episodeId, pending.idx).run();
+      }
+      const gen = await generateStory(ai, outline, { plan: outline.plan, rethrow: isNeuronsExhausted });
       await env.DB.prepare("UPDATE chapters SET spoken = ?, clips_json = '[]', duration = 0, updated_at = ? WHERE episode_id = ? AND idx = ?")
         .bind(gen.spoken, now(), pending.episodeId, pending.idx).run();
+      if (gen.droppedCues.length) console.log("dropped cues", pending.episodeId, gen.droppedCues.join(" | "));
       lines = gen.lines;
       rescripted = true;
       // clips of the replaced script are orphans now (new keys carry a text hash)
@@ -90,8 +99,11 @@ export async function voiceNext(env: Env): Promise<string> {
     for (const [i, l] of tonight.entries()) {
       const n = voiced.length + i;
       // text hash in the key: a re-scripted line never collides with a cached old clip
-      const key = `episodes/${pending.episodeId}/ch-${pending.idx}-line-${n}-${shortHash(`${voiceFor(l.speaker, voices)}:${l.text}`)}.mp3`;
-      fresh.push(await speakLine(env, key, l.speaker, l.text, voiceFor(l.speaker, voices)));
+      const voice = voiceFor(l.speaker, voices, outline.plan);
+      const key = `episodes/${pending.episodeId}/ch-${pending.idx}-line-${n}-${shortHash(`${voice}:${l.text}`)}.mp3`;
+      // characters carry their pitch with the clip; Ajja's and the Kid's come from the Voice Lab at render time
+      const pitch = l.speaker === "AJJA" || l.speaker === "KID" ? undefined : pitchFor(l.speaker, voices, outline.plan);
+      fresh.push(await speakLine(env, key, l.speaker, l.text, voice, pitch));
     }
   } catch (e) {
     // save whatever got voiced, then pause (neurons) or fail loudly (real error)
@@ -119,19 +131,22 @@ export async function voiceNext(env: Env): Promise<string> {
 }
 
 function timed(clips: { start: number; end: number; words: { text: string; start: number; end: number }[] }[], parts: StoredLineClip[]) {
-  return clips.map((c, i) => ({ index: i, duration: c.end - c.start, ...c, speaker: parts[i].speaker, text: parts[i].text, url: parts[i].url, voice: parts[i].voice }));
+  return clips.map((c, i) => ({ index: i, duration: c.end - c.start, ...c, speaker: parts[i].speaker, text: parts[i].text, url: parts[i].url, voice: parts[i].voice, ...(parts[i].pitch ? { pitch: parts[i].pitch } : {}) }));
 }
 
-/** Create a fresh episode outline + 8 pending chapters. Used by the cron when idle and by /api/run. */
+/** Create a fresh standalone story (one chapter row). Used by the cron when idle and by /api/run. */
 export async function createOutline(env: Env, params: { theme?: string }): Promise<string> {
   await ensureSchema(env.DB);
   const id = newId();
-  const recent = (await env.DB.prepare("SELECT theme_id FROM themes_used ORDER BY used_at DESC LIMIT 4").all<{ theme_id: string }>()).results.map((r) => r.theme_id);
-  const kinds = (await env.DB.prepare("SELECT kind FROM episodes ORDER BY created_at DESC LIMIT 2").all<{ kind: string }>()).results.map((r) => r.kind as never);
+  // oldest first, so selectTheme's cooldown looks at the most recent themes
+  const recent = (await env.DB.prepare("SELECT theme_id FROM themes_used ORDER BY used_at DESC LIMIT 4").all<{ theme_id: string }>()).results.map((r) => r.theme_id).reverse();
+  const last = (await env.DB.prepare("SELECT kind, outline_json FROM episodes ORDER BY created_at DESC LIMIT 20").all<{ kind: string; outline_json: string }>()).results;
+  const kinds = last.slice(0, 2).map((r) => r.kind as never).reverse();
+  const recentPremises = last.map((r) => { try { return (JSON.parse(r.outline_json) as EpisodeOutline).premiseId; } catch { return undefined; } }).filter(Boolean) as string[];
   const forced = params.theme ? themeById(params.theme) : undefined;
   if (params.theme && !forced) throw new Error(`unknown theme ${params.theme}`);
   const picked = forced ? { theme: forced, kind: (kinds[kinds.length - 1] ?? "folk-tale") as never } : selectTheme(recent, kinds as never[]);
-  const outline = buildOutline(picked.theme, picked.kind as never);
+  const outline = buildOutline(picked.theme, picked.kind as never, selectPremise(picked.theme.id, recentPremises));
   const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare("INSERT OR REPLACE INTO episodes (id, title, theme_id, kind, status, outline_json, created_at, updated_at) VALUES (?, ?, ?, ?, 'chapter-pending', ?, ?, ?)").bind(id, outline.title, picked.theme.id, picked.kind, JSON.stringify(outline), now, now),

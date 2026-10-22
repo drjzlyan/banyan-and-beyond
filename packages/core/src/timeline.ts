@@ -1,12 +1,12 @@
 /**
- * Chapter timeline shaping. The eight chapter videos are joined into one ~48-minute YouTube video,
- * so each chapter gets bookends that work in that setting: the brand jingle opens chapter 1, a short
- * sting of the same tune opens every other chapter, a little room after the last line lets the
- * cliffhanger land before the iris closes, and only the final chapter gets the lesson card + outro.
+ * Timeline shaping. A standalone story ("single") opens with the full brand jingle and closes with
+ * the lesson card + outro reprise. Legacy 8-chapter episodes were joined into one video, so their
+ * chapters got first/middle/final bookends: the jingle on chapter 1, a sting on the others, a little
+ * room after the cliffhanger, and the lesson card only at the very end.
  * Also the pause after each line, which is the one speaking-pace lever fully under our control
  * (Aura-2 takes no SSML), shared by the renderer and the length estimate.
  */
-export type ChapterRole = "first" | "middle" | "final";
+export type ChapterRole = "single" | "first" | "middle" | "final";
 
 /** Full brand jingle under the title card, then Ajja's welcome. */
 export const INTRO_FIRST_SECONDS = 6.5;
@@ -18,13 +18,17 @@ export const TAIL_SECONDS = 2;
 export const OUTRO_FINAL_SECONDS = 9;
 
 export function chapterRole(index: number, count: number): ChapterRole {
-  return index === 0 ? "first" : index >= count - 1 ? "final" : "middle";
+  return count <= 1 ? "single" : index === 0 ? "first" : index >= count - 1 ? "final" : "middle";
 }
+
+/** Roles that open with the full jingle, and roles that end with the lesson card + outro. */
+export const opensWithJingle = (role: ChapterRole) => role === "single" || role === "first";
+export const endsWithLesson = (role: ChapterRole) => role === "single" || role === "final";
 
 export function bookendSeconds(role: ChapterRole): { intro: number; outro: number } {
   return {
-    intro: role === "first" ? INTRO_FIRST_SECONDS : INTRO_STING_SECONDS,
-    outro: role === "final" ? OUTRO_FINAL_SECONDS : TAIL_SECONDS,
+    intro: opensWithJingle(role) ? INTRO_FIRST_SECONDS : INTRO_STING_SECONDS,
+    outro: endsWithLesson(role) ? OUTRO_FINAL_SECONDS : TAIL_SECONDS,
   };
 }
 

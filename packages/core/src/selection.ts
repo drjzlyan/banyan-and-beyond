@@ -1,8 +1,10 @@
+import type { Premise } from "./premises.ts";
 import { STORY_KINDS, THEMES } from "./themes.ts";
 import type { EpisodeOutline, StoryKind, Theme } from "./types.ts";
 
-export const CHAPTER_COUNT = 8;
-/** A theme returns after this many episodes (2-week cadence -> ~60 days ≈ 2 episodes gap). */
+/** One standalone story per video (owner's choice, 2026-10-22; it was 8 chapters joined into ~48 min). */
+export const CHAPTER_COUNT = 1;
+/** A theme returns after this many stories. */
 export const THEME_COOLDOWN_EPISODES = 2;
 
 /** Pick the next theme: least-recently-used, rotating story kind. Pure + unit-tested. */
@@ -27,31 +29,16 @@ export function buildEpisodeTitle(theme: Theme, kind: StoryKind): string {
 }
 
 /**
- * One through-line for the whole episode: a child's small wish or problem set up in chapter 1,
- * pushed further every chapter, a gentle low point in chapter 6 and a happy, surprising fix in
- * chapter 7, so viewers keep watching to find out how it ends. The chapters play back to back in
- * one video, so each beat also hands the next one a reason to keep listening.
+ * A standalone story: one video, one "chapter" row, seeded with a public-domain premise. The
+ * scenes are planned on the scripting night (generate.ts planStory) and stored back in the outline.
  */
-export function outlineBeats(theme: Theme): string[] {
-  const v = theme.valueWord.toLowerCase();
-  return [
-    `Meet the main child of this story and ONE small wish or problem the whole story is about (a lost kite, a promise to keep, a broken pot). It quietly touches on ${v}.`,
-    `Chasing that wish, the main child makes a small mistake that shows what happens without ${v}. The wish looks harder now.`,
-    `A neighbour with a gentle dilemma about ${v} crosses the main child's path and gives a clue about the wish.`,
-    `Ajja tells a short old tale inside the story, about animals or a king, that gives the main child an idea about ${v}.`,
-    `The main child tries a small brave act of ${v}. It goes wrong twice before it starts to work.`,
-    `The lowest moment: the wish seems lost and someone is sad. The main child must choose ${v} even though it is hard.`,
-    `The main child chooses ${v} and makes amends; the village helps and the wish comes true in a surprising way.`,
-    `Everyone celebrates together and Ajja gently closes the story. The moral: ${theme.moral}`,
-  ];
-}
-
-export function buildOutline(theme: Theme, kind: StoryKind): EpisodeOutline {
-  const beats = outlineBeats(theme);
+export function buildOutline(theme: Theme, kind: StoryKind, premise?: Premise): EpisodeOutline {
   return {
     theme,
     kind,
-    title: buildEpisodeTitle(theme, kind),
-    chapters: beats.map((beat, index) => ({ index, title: `Chapter ${index + 1}`, beat })),
+    format: "story",
+    premiseId: premise?.id,
+    title: premise?.title ?? buildEpisodeTitle(theme, kind),
+    chapters: [{ index: 0, title: premise?.title ?? "The story", beat: premise?.plot ?? `A simple story about ${theme.valueWord.toLowerCase()}.` }],
   };
 }

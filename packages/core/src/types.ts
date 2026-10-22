@@ -1,6 +1,8 @@
-/** Shared types for Banyan and Beyond: ~48-min story episodes in 8 chapters for kids (6-12). */
+/** Shared types for Banyan and Beyond: standalone ~7-min story videos for kids (6-12). */
+import type { CastKind, LocationId, Mood } from "./world.ts";
 
-export type Speaker = "AJJA" | "KID";
+/** AJJA (narrator), KID (listener under the banyan) or a story character's id from the plan (e.g. "MEENA"). */
+export type Speaker = "AJJA" | "KID" | (string & {});
 
 export interface DialogueLine {
   speaker: Speaker;
@@ -32,6 +34,46 @@ export interface EpisodeOutline {
   kind: StoryKind;
   title: string;
   chapters: ChapterPlan[];
+  /** "story": one standalone video planned scene by scene. Missing on legacy 8-chapter episodes. */
+  format?: "story";
+  /** the public-domain plot seed (premises.ts id) */
+  premiseId?: string;
+  /** written by the planner on the scripting night; drives scenes, cast voices and sounds */
+  plan?: StoryPlan;
+}
+
+export interface CastMember {
+  /** speaker tag in the script, upper case (MEENA) */
+  id: string;
+  /** the name said aloud (Meena) */
+  name: string;
+  kind: CastKind;
+  /** one simple trait the story leans on (curious, clumsy, bossy...) */
+  trait: string;
+}
+
+export interface PlanScene {
+  location: LocationId;
+  /** cast ids present in the scene */
+  cast: string[];
+  /** what happens, one sentence */
+  beat: string;
+  /** the small funny moment that keeps kids watching */
+  funny: string;
+  mood: Mood;
+}
+
+/** The story's plan, written before any lines so every scene moves the plot forward exactly once. */
+export interface StoryPlan {
+  title: string;
+  /** the hero's wish or problem */
+  want: string;
+  cast: CastMember[];
+  /** the catchphrase repeated two or three times */
+  chorus: string;
+  /** a small mystery set up early and answered late */
+  mystery: { question: string; answer: string; setupScene: number; payoffScene: number };
+  scenes: PlanScene[];
 }
 
 export interface ClipPart {
@@ -79,4 +121,5 @@ export type EpisodeStatus =
   | "rendered"
   | "approved"
   | "uploading"
-  | "posted";
+  | "posted"
+  | "archived";

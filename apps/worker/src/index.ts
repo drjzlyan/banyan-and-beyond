@@ -13,7 +13,7 @@ const newId = () => `e${Date.now().toString(36)}${Math.random().toString(36).sli
 /** Revision suffix for re-rendered media, so browsers never replay a cached old copy. */
 const rev = () => Date.now().toString(36);
 /** Once YouTube has the episode, the Studio must not change it underneath. */
-const locked = (status: string) => status === "uploading" || status === "posted";
+const locked = (status: string) => status === "uploading" || status === "posted" || status === "archived";
 
 /** The /api routes stay off (404) until ADMIN_TOKEN is set. Compared in constant time. */
 function authorized(req: Request, env: Env): boolean {
@@ -105,7 +105,8 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
         return json({ error: (e as Error).message }, 409);
       }
       const chapters = (await env.DB.prepare("SELECT idx, title, duration, video_duration, video_key FROM chapters WHERE episode_id = ? AND video_key IS NOT NULL ORDER BY idx").bind(id).all<{ idx: number; title: string; duration: number; video_duration: number | null; video_key: string }>()).results;
-      if (chapters.length !== 8) return json({ error: `episode needs 8 rendered chapters, has ${chapters.length}` }, 409);
+      const total = await env.DB.prepare("SELECT COUNT(*) n FROM chapters WHERE episode_id = ?").bind(id).first<{ n: number }>();
+      if (!chapters.length || chapters.length !== (total?.n ?? 0)) return json({ error: `every chapter needs a rendered video (${chapters.length}/${total?.n ?? 0})` }, 409);
       const outline = JSON.parse(row.outline_json) as { theme: { moral: string } };
       const description = youtubeDescription(youtubeTitle(row.title), chapterStamps(chapters), outline.theme.moral);
       const thumb = await env.DB.prepare("SELECT thumbnail_key FROM episodes WHERE id = ?").bind(id).first<{ thumbnail_key: string | null }>();

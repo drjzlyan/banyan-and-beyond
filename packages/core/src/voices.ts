@@ -1,5 +1,6 @@
 import type { AudioRunner } from "./ai.ts";
-import type { ClipPart, DialogueLine } from "./types.ts";
+import type { ClipPart, DialogueLine, StoryPlan } from "./types.ts";
+import { CAST_KINDS, isCastKind, type CastKind } from "./world.ts";
 
 /** Deepgram Aura-2 English (same model chota.vc uses live). */
 export const TTS_MODEL = "@cf/deepgram/aura-2-en";
@@ -52,7 +53,7 @@ export function planLineClips(
   spoken: string,
 ): { text: string; speaker: DialogueLine["speaker"]; keep: { start: number; end: number } | null }[] {
   const next = spoken.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
-    const m = l.match(/^(AJJA|KID):\s*(.+)$/);
+    const m = l.match(/^(?!SFX:|SCENE:)([A-Z][A-Z_]{1,15}):\s*(.+)$/);
     return m ? { speaker: m[1] as DialogueLine["speaker"], text: m[2].trim() } : null;
   });
   const byText = new Map(old.map((c) => [`${c.speaker}:${c.text}`, c]));
@@ -127,6 +128,8 @@ export interface VoiceSettings {
   /** browser resample rate: below 1 is deeper and slower, above 1 is higher and faster */
   ajjaPitch: number;
   kidPitch: number;
+  /** owner overrides for story characters, by kind (defaults in world.ts CAST_KINDS) */
+  cast?: Partial<Record<CastKind, { voice: string; pitch: number }>>;
 }
 
 export const DEFAULT_VOICE_SETTINGS: VoiceSettings = { ajjaVoice: AJJA_SPEAKER, kidVoice: KID_SPEAKER, ajjaPitch: AJJA_PITCH, kidPitch: KID_PITCH };
@@ -147,11 +150,40 @@ export function mergeVoiceSettings(current: VoiceSettings, patch: Partial<Record
   for (const k of ["ajjaPitch", "kidPitch"] as const) {
     const v = patch[k];
     if (v === undefined) continue;
-    if (typeof v !== "number" || !Number.isFinite(v) || v < PITCH_MIN || v > PITCH_MAX) errors.push(`${k} must be between ${PITCH_MIN} and ${PITCH_MAX}`);
+    if (!okPitch(v)) errors.push(`${k} must be between ${PITCH_MIN} and ${PITCH_MAX}`);
     else next[k] = Math.round(v * 100) / 100;
+  }
+  if (patch.cast !== undefined) {
+    const cast: NonNullable<VoiceSettings["cast"]> = { ...(current.cast ?? {}) };
+    for (const [kind, v] of Object.entries((patch.cast ?? {}) as Record<string, { voice?: unknown; pitch?: unknown } | null>)) {
+      if (!isCastKind(kind)) { errors.push(`unknown character kind ${kind}`); continue; }
+      if (v === null) { delete cast[kind]; continue; }
+      if (typeof v?.voice !== "string" || !(AURA2_VOICES as readonly string[]).includes(v.voice)) { errors.push(`${kind} voice must be one of the Aura-2 voices`); continue; }
+      if (!okPitch(v.pitch)) { errors.push(`${kind} pitch must be between ${PITCH_MIN} and ${PITCH_MAX}`); continue; }
+      cast[kind] = { voice: v.voice, pitch: Math.round((v.pitch as number) * 100) / 100 };
+    }
+    next.cast = cast;
   }
   return { settings: next, errors };
 }
 
-/** Which Aura voice speaks a line under the given settings. */
-export const voiceFor = (speaker: DialogueLine["speaker"], s: VoiceSettings) => (speaker === "KID" ? s.kidVoice : s.ajjaVoice);
+const okPitch = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= PITCH_MIN && v <= PITCH_MAX;
+
+/** A story character's voice and pitch: the owner's override for its kind, else the kind's default. */
+export function castVoice(kind: CastKind, s: VoiceSettings): { voice: string; pitch: number } {
+  return s.cast?.[kind] ?? { voice: CAST_KINDS[kind].voice, pitch: CAST_KINDS[kind].pitch };
+}
+
+/** Which Aura voice speaks a line under the given settings (characters need the story plan). */
+export function voiceFor(speaker: DialogueLine["speaker"], s: VoiceSettings, plan?: StoryPlan | null): string {
+  if (speaker === "KID") return s.kidVoice;
+  const member = plan?.cast.find((c) => c.id === speaker);
+  return member ? castVoice(member.kind, s).voice : s.ajjaVoice;
+}
+
+/** Browser pitch for a line's speaker. */
+export function pitchFor(speaker: DialogueLine["speaker"], s: VoiceSettings, plan?: StoryPlan | null): number {
+  if (speaker === "KID") return s.kidPitch;
+  const member = plan?.cast.find((c) => c.id === speaker);
+  return member ? castVoice(member.kind, s).pitch : s.ajjaPitch;
+}

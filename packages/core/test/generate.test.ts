@@ -1,147 +1,179 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildOutline } from "../src/selection.ts";
-import { themeById } from "../src/themes.ts";
-import { buildChapterMessages, generateChapter, MAX_CHAPTER_WORDS, MIN_CHAPTER_WORDS, storySoFar } from "../src/generate.ts";
 import type { AiRunner } from "../src/ai.ts";
+import { checkScenes, dropBadCues, generateStory, MAX_STORY_WORDS, MIN_STORY_WORDS, sceneBatches, validatePlan, viewerQuestionScenes } from "../src/generate.ts";
+import { premiseById } from "../src/premises.ts";
+import { buildOutline } from "../src/selection.ts";
+import { sceneMarks } from "../src/story.ts";
+import { themeById } from "../src/themes.ts";
+import type { StoryPlan } from "../src/types.ts";
 
-const outline = buildOutline(themeById("kindness")!, "village-story");
-
-/** A valid ~320-word half: 16 lines x 20 words (no digits — the validator forbids them). */
-const POOL = "the old banyan tree gives cool shade while kind children listen softly every evening".split(" ");
-function makeHalf(totalLines = 16, wordsPerLine = 20): string[] {
-  const words = Array.from({ length: wordsPerLine }, (_, i) => POOL[i % POOL.length]).join(" ");
-  const rows = Array.from({ length: totalLines }, (_, i) => `${i % 4 === 3 ? "KID" : "AJJA"}: ${words}.`);
-  rows.splice(5, 0, "SFX: birds"); // a sound cue, which is never spoken
-  return rows;
-}
-
-const resultFor = (lines: string[]) => ({ lines });
+const outline = buildOutline(themeById("kindness")!, "folk-tale", premiseById("thirsty-dog"));
 const PRIMARY = "@cf/openai/gpt-oss-120b";
 const FALLBACK = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
-describe("generateChapter (two halves)", () => {
-  it("writes two halves and prepends the intro on chapter 0", async () => {
-    const ai: AiRunner = vi.fn(async () => resultFor(makeHalf()));
-    const out = await generateChapter(ai, outline, 0, { maxAttempts: 2 });
-    expect(ai).toHaveBeenCalledTimes(3);
-    expect(out.attempts).toBe(3);
-    // cues stay in the script but are not spoken lines
-    expect(out.spoken).toMatch(/^SFX: birds$/m);
-    expect(out.lines.every((l) => l.speaker === "AJJA" || l.speaker === "KID")).toBe(true);
-    expect(out.words).toBeGreaterThanOrEqual(MIN_CHAPTER_WORDS);
-    expect(out.words).toBeLessThanOrEqual(MAX_CHAPTER_WORDS);
-    expect(out.spoken.split("\n")[0]).toMatch(/^AJJA: Namaste little friends/);
-    expect((ai as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe(PRIMARY);
-    // the second half sees the first half's lines
-    const secondInput = (ai as ReturnType<typeof vi.fn>).mock.calls[1][1] as { messages: { content: string }[] };
-    expect(secondInput.messages.map((m) => m.content).join(" ")).toMatch(/Continue the SAME scene/);
-    // only the second half may end on the "tomorrow" hook; the first must not greet again
-    const firstInput = (ai as ReturnType<typeof vi.fn>).mock.calls[0][1] as { messages: { content: string }[] };
-    const first = firstInput.messages.map((m) => m.content).join(" ");
-    expect(first).toMatch(/Do not mention tomorrow/);
-    expect(first).toMatch(/do not welcome or greet them again/);
-    // middle part: no hook yet; only the last part ends on the "tomorrow" hook
-    expect(secondInput.messages.map((m) => m.content).join(" ")).toMatch(/Do not mention tomorrow/);
-    const lastInput = (ai as ReturnType<typeof vi.fn>).mock.calls[2][1] as { messages: { content: string }[] };
-    expect(lastInput.messages.map((m) => m.content).join(" ")).toMatch(/LAST line, and only your last line/);
-  });
+const PLAN: StoryPlan = {
+  title: "Water for Moti",
+  want: "Meena wants to help a thirsty puppy on the hottest day.",
+  cast: [
+    { id: "MEENA", name: "Meena", kind: "girl", trait: "determined" },
+    { id: "MOTI", name: "Moti", kind: "dog", trait: "cheeky" },
+    { id: "DADI", name: "Dadi", kind: "grandmother", trait: "wise" },
+  ],
+  chorus: "One more try, up goes the sky!",
+  mystery: { question: "Who keeps leaving wet paw prints?", answer: "Moti, sneaking to the pot", setupScene: 1, payoffScene: 5 },
+  scenes: [
+    { location: "village-lane", cast: ["MEENA", "MOTI"], beat: "Meena finds a panting puppy beside the dry well.", funny: "Moti licks her nose", mood: "curious" },
+    { location: "village-lane", cast: ["MEENA", "MOTI"], beat: "Her little bucket on the rope is far too short.", funny: "the bucket comes up holding a frog", mood: "worried" },
+    { location: "courtyard", cast: ["MEENA", "DADI"], beat: "She asks Dadi for a longer rope but it tangles.", funny: "Dadi gets wrapped like a parcel", mood: "playful" },
+    { location: "village-lane", cast: ["MEENA", "DADI"], beat: "Dadi remembers how children once made a chain of hands.", funny: "the chain sneezes from the dust", mood: "curious" },
+    { location: "village-lane", cast: ["MEENA", "MOTI", "DADI"], beat: "Every friend joins hands and the water finally reaches Moti.", funny: "Moti shakes water over everyone", mood: "triumphant" },
+    { location: "courtyard", cast: ["MEENA", "MOTI", "DADI"], beat: "The lane celebrates and Moti becomes the lane's new guard.", funny: "Moti barks at his own tail", mood: "triumphant" },
+  ],
+};
 
-  it("ends on a cliffhanger, not 'tomorrow', and carries the story across chapters", () => {
-    const story = storySoFar(
-      "AJJA: Namaste little friends, come sit with me under the old banyan tree.\nAJJA: Meena had a red kite she loved.\nSFX: wind\nKID: Did it fly high?",
-      "AJJA: The box began to shake.\nKID: What was inside, Ajja?\nAJJA: And then... guess what happened?",
-    );
-    expect(story.opening).toEqual(["AJJA: Meena had a red kite she loved.", "KID: Did it fly high?"]);
-    expect(story.previousEnding?.at(-1)).toBe("AJJA: And then... guess what happened?");
-    const last = buildChapterMessages(outline, 3, undefined, ["AJJA: x"], { index: 2, count: 3 }, story).map((m) => m.content).join(" ");
-    expect(last).toMatch(/cliffhanger/);
-    expect(last).toMatch(/never say tomorrow/);
-    expect(last).toMatch(/Meena had a red kite/); // same main characters
-    expect(last).not.toMatch(/FIRST lines must answer it/); // only the chapter's first part picks up the cliffhanger
-    const opening = buildChapterMessages(outline, 3, undefined, undefined, { index: 0, count: 3 }, story).map((m) => m.content).join(" ");
-    expect(opening).toMatch(/FIRST lines must answer it straight away[\s\S]*guess what happened/);
-    expect(buildChapterMessages(outline, 0).map((m) => m.content).join(" ")).toMatch(/Start with a surprise in the first two lines/);
-  });
+/** Distinct made-up words, so the repeat detector sees every fake line as new. */
+const SYL = ["ka", "lo", "mi", "ra", "su", "te", "no", "vi"];
+let n = 0;
+const word = () => { const i = n++; return SYL[i % 8] + SYL[(i >> 3) % 8] + SYL[(i >> 6) % 8] + SYL[(i >> 9) % 8]; };
+const words = (k: number) => Array.from({ length: k }, word).join(" ");
 
-  it("appends the outro on the final chapter", async () => {
-    const ai: AiRunner = vi.fn(async () => resultFor(makeHalf()));
-    const out = await generateChapter(ai, outline, 7, { maxAttempts: 1 });
-    const rows = out.spoken.split("\n");
-    expect(rows[rows.length - 1]).toMatch(/^AJJA: Tell someone you love/);
-  });
-
-  it("retries a bad half with validator feedback and still joins", async () => {
-    const bad = ["AJJA: I have 3 mangoes.", "KID: Oh."];
-    const ai: AiRunner = vi.fn()
-      .mockResolvedValueOnce(resultFor(bad))
-      .mockResolvedValueOnce(resultFor(makeHalf()))
-      .mockResolvedValueOnce(resultFor(makeHalf()))
-      .mockResolvedValueOnce(resultFor(makeHalf()));
-    const out = await generateChapter(ai, outline, 3, { maxAttempts: 3 });
-    expect(out.attempts).toBe(4);
-    const retryInput = (ai as ReturnType<typeof vi.fn>).mock.calls[1][1] as { messages: { content: string }[] };
-    expect(retryInput.messages.map((m) => m.content).join(" ")).toMatch(/rejected/);
-  });
-
-  it("uses the fallback model on the last attempt of a half", async () => {
-    const short = ["AJJA: Hello there friend.", "KID: Hello Ajja, tell me more please."];
-    const calls: string[] = [];
-    const ai: AiRunner = async (model, input) => {
-      calls.push(model);
-      void input;
-      return resultFor(short);
-    };
-    await expect(generateChapter(ai, outline, 2, { maxAttempts: 3 })).rejects.toThrow(/chapter part 1 failed after 3 attempts/);
-    expect(calls).toEqual([PRIMARY, PRIMARY, FALLBACK]);
-  });
-
-  it("treats request errors as retryable feedback", async () => {
-    const ai: AiRunner = vi.fn()
-      .mockRejectedValueOnce(new Error("Workers AI 500 boom"))
-      .mockResolvedValueOnce(resultFor(makeHalf()))
-      .mockResolvedValueOnce(resultFor(makeHalf()))
-      .mockResolvedValueOnce(resultFor(makeHalf()));
-    const out = await generateChapter(ai, outline, 4, { maxAttempts: 2 });
-    expect(out.attempts).toBe(4);
-  });
-});
-
-/** What gpt-oss really returns for "18-26 lines of 6-14 words": short parts, about 10 words a line. */
-function realisticPart(lines: number, opts: { startCue?: boolean; endCue?: boolean } = {}): string[] {
-  const ten = "Meena ran to the river with her red kite today";
-  const rows = Array.from({ length: lines }, (_, i) => `${i % 3 === 2 ? "KID" : "AJJA"}: ${ten}.`);
-  rows.splice(4, 0, "SFX: wind");
-  if (opts.startCue) rows.unshift("SFX: birds");
-  if (opts.endCue) rows.push("SFX: bell");
+/** A valid batch for the scenes the prompt asks for: 12 lines a scene, one Kid line, viewer questions where assigned. */
+function fakeScenes(prompt: string, opts: { kidNarrates?: boolean } = {}): string[] {
+  const nums = (prompt.match(/Write scenes? ([\d, ]+) now/)?.[1] ?? "1").split(",").map((s) => Number(s.trim()));
+  const rows: string[] = [];
+  for (const s of nums) {
+    rows.push(`SCENE: ${s}`);
+    for (let i = 0; i < 12; i++) {
+      const who = i === 5 ? "KID" : i % 3 === 1 ? "MEENA" : "AJJA";
+      rows.push(`${who}: ${who === "KID" && opts.kidNarrates ? "I ran to the well and" : ""} ${words(10)}.`.replace(/\s+/g, " "));
+      if (i === 2) rows.push("SFX: splash");
+    }
+    if (viewerQuestionScenes(PLAN.scenes.length).includes(s)) rows.push("AJJA: What would YOU do for a thirsty puppy? Hmm?");
+  }
   return rows;
 }
 
-describe("generateChapter with realistic short parts", () => {
-  it("keeps three ~220-word parts instead of throwing them away", async () => {
-    const ai: AiRunner = vi.fn(async () => resultFor(realisticPart(22)));
-    const out = await generateChapter(ai, outline, 2, { maxAttempts: 1 });
-    expect(ai).toHaveBeenCalledTimes(3);
-    expect(out.words).toBe(660);
+const promptOf = (input: Record<string, unknown>) => (input.messages as { content: string }[]).map((m) => m.content).join("\n");
+const json = (v: unknown) => ({ response: JSON.stringify(v) });
+
+function fakeAi(opts: { plan?: unknown; kidNarratesOnce?: boolean } = {}) {
+  let narrated = false;
+  return vi.fn<AiRunner>(async (_model, input) => {
+    const p = promptOf(input);
+    if (/Plan it as JSON/.test(p)) return json(opts.plan ?? PLAN);
+    const kid = opts.kidNarratesOnce && !narrated;
+    narrated = true;
+    return json({ lines: fakeScenes(p, { kidNarrates: kid }) });
+  });
+}
+
+describe("generateStory (plan, then scenes)", () => {
+  it("plans once, writes each scene in its own call and joins them with the fixed intro and outro", async () => {
+    const ai = fakeAi();
+    const out = await generateStory(ai, outline, { maxAttempts: 2 });
+    expect(ai).toHaveBeenCalledTimes(7);
+    expect(out.plan.title).toBe("Water for Moti");
+    const rows = out.spoken.split("\n");
+    expect(rows[0]).toMatch(/^AJJA: Namaste little friends/);
+    expect(rows[rows.length - 1]).toMatch(/^AJJA: Tell someone you love/);
+    expect(sceneMarks(out.spoken).map((s) => s.n)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(new Set(out.lines.map((l) => l.speaker))).toEqual(new Set(["AJJA", "KID", "MEENA"]));
+    expect(out.words).toBeGreaterThanOrEqual(MIN_STORY_WORDS);
+    expect(out.words).toBeLessThanOrEqual(MAX_STORY_WORDS);
+    // each batch sees what is done and is told not to replay it
+    const prompts = ai.mock.calls.map((c) => promptOf(c[1]));
+    expect(prompts[1]).toMatch(/Write scene 1 now/);
+    expect(prompts[1]).toMatch(/plant the mystery \("Who keeps leaving wet paw prints\?"\) but do NOT answer it/);
+    expect(prompts[3]).toMatch(/Scenes 1 to 2 are ALREADY written[\s\S]*never repeat or retell them/);
+    expect(prompts[5]).toMatch(/answer the mystery: Moti, sneaking to the pot/);
+    expect(prompts[6]).toMatch(/celebrate warmly/);
   });
 
-  it("adds a fourth part when three would fall short of the target", async () => {
-    const ai: AiRunner = vi.fn(async () => resultFor(realisticPart(18)));
-    const out = await generateChapter(ai, outline, 2, { maxAttempts: 1 });
-    expect(ai).toHaveBeenCalledTimes(4);
-    expect(out.words).toBe(720);
-    // only the final (fourth) part was told to end on the hook
-    const prompts = (ai as ReturnType<typeof vi.fn>).mock.calls.map((c) => (c[1] as { messages: { content: string }[] }).messages.map((m) => m.content).join(" "));
-    expect(prompts.filter((p) => /LAST line, and only your last line/.test(p))).toHaveLength(1);
-    expect(prompts[3]).toMatch(/LAST line, and only your last line/);
+  it("drops the model's unrelated sound cues and keeps the ones its words call for", async () => {
+    const out = await generateStory(fakeAi(), outline, { maxAttempts: 1 });
+    // the fake writes "SFX: splash" before lines that never mention water
+    expect(out.spoken).not.toMatch(/^SFX: splash$/m);
+    expect(out.droppedCues.length).toBeGreaterThan(0);
   });
 
-  it("merges a cue that ends one part with a cue that starts the next", async () => {
-    const ai: AiRunner = vi.fn()
-      .mockResolvedValueOnce(resultFor(realisticPart(24, { endCue: true })))
-      .mockResolvedValueOnce(resultFor(realisticPart(24, { startCue: true })))
-      .mockResolvedValueOnce(resultFor(realisticPart(24)));
-    const out = await generateChapter(ai, outline, 2, { maxAttempts: 1 });
-    expect(out.spoken).not.toMatch(/^SFX: bell\nSFX: birds$/m);
-    expect(out.spoken).toMatch(/^SFX: bell$/m);
+  it("retries a batch where the Kid narrates the story, quoting the problem", async () => {
+    const ai = fakeAi({ kidNarratesOnce: true });
+    await generateStory(ai, outline, { maxAttempts: 2 });
+    const retry = promptOf(ai.mock.calls[2]![1]);
+    expect(retry).toMatch(/rejected: .*the Kid is listening under the banyan tree/);
+  });
+
+  it("re-plans with feedback and falls back to the second model on the last attempt", async () => {
+    const calls: string[] = [];
+    const ai: AiRunner = async (model, input) => {
+      calls.push(model);
+      if (/Plan it as JSON/.test(promptOf(input))) return json({ ...PLAN, cast: [PLAN.cast[0]] });
+      return json({ lines: [] });
+    };
+    await expect(generateStory(ai, outline, { maxAttempts: 3 })).rejects.toThrow(/story plan failed after 3 attempts: cast needs two to four/);
+    expect(calls).toEqual([PRIMARY, PRIMARY, FALLBACK]);
+  });
+
+  it("lets neuron exhaustion escape instead of retrying", async () => {
+    const ai: AiRunner = vi.fn(async () => { throw new Error("3036: neurons used up"); });
+    await expect(generateStory(ai, outline, { rethrow: (e) => /3036/.test(String(e)) })).rejects.toThrow(/3036/);
+    expect(ai).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("validatePlan", () => {
+  it("accepts a good plan", () => {
+    expect(validatePlan(PLAN).problems).toEqual([]);
+  });
+  it("catches replayed scenes, unknown kinds and places, reserved ids and a mystery solved too soon", () => {
+    const bad = {
+      ...PLAN,
+      cast: [...PLAN.cast.slice(0, 2), { id: "dadi", name: "Dadi", kind: "dragon", trait: "x" }],
+      mystery: { ...PLAN.mystery, payoffScene: 2 },
+      scenes: [...PLAN.scenes.slice(0, 5), { ...PLAN.scenes[0]!, location: "moon" }],
+    };
+    const p = validatePlan(bad).problems.join(" | ");
+    expect(p).toMatch(/cast id "dadi" must be a name in CAPITALS/);
+    expect(p).toMatch(/kind "dragon"/);
+    expect(p).toMatch(/scene 6 location "moon"/);
+    expect(p).toMatch(/scenes 1 and 6 have the same beat/);
+    expect(p).toMatch(/payoffScene at least two scenes later/);
+  });
+  it("rejects forbidden words anywhere in the plan", () => {
+    expect(validatePlan({ ...PLAN, want: "Meena wants to catch the ghost." }).problems.join()).toMatch(/forbidden word \("ghost"\)/);
+  });
+});
+
+describe("checkScenes", () => {
+  it("needs the right scene marks and allows viewer questions only where planned", () => {
+    const rows = fakeScenes("Write scenes 1, 2 now").filter((r) => r !== "SCENE: 2");
+    expect(checkScenes(rows, [1, 2], PLAN, []).join(" ")).toMatch(/write exactly the rows SCENE: 1, SCENE: 2/);
+    const extraQ = [...fakeScenes("Write scene 1 now"), "AJJA: And what would YOU pick? Hmm?"];
+    expect(checkScenes(extraQ, [1], PLAN, []).join(" ")).toMatch(/asks the viewers 1 times here; only 0 allowed/);
+  });
+  it("flags a line that replays an earlier one", () => {
+    const prior = ["SCENE: 1", "AJJA: Meena pulled the long rope out of the dry well slowly."];
+    const rows = [...fakeScenes("Write scene 2 now"), "AJJA: Meena slowly pulled the long rope out of the dry well."];
+    expect(checkScenes(rows, [2], PLAN, prior).join(" ")).toMatch(/repeats line 1/);
+  });
+});
+
+describe("sceneBatches", () => {
+  it("writes one scene per call by default, or groups them", () => {
+    expect(sceneBatches(6)).toEqual([[1], [2], [3], [4], [5], [6]]);
+    expect(sceneBatches(7, 3)).toEqual([[1, 2, 3], [4, 5, 6], [7]]);
+  });
+});
+
+describe("forgiving fixes", () => {
+  it("reads number words in the plan and drops Ajja from the cast", () => {
+    const loose = { ...PLAN, cast: [...PLAN.cast, { id: "AJJA", name: "Ajja", kind: "grandfather", trait: "wise" }], mystery: { ...PLAN.mystery, setupScene: "one", payoffScene: "four" } };
+    const { plan, problems } = validatePlan(loose);
+    expect(problems).toEqual([]);
+    expect(plan!.cast.map((c) => c.id)).toEqual(["MEENA", "MOTI", "DADI"]);
+    expect(plan!.mystery.payoffScene).toBe(4);
+  });
+  it("removes unknown and back-to-back cues instead of rejecting the scene", () => {
+    expect(dropBadCues(["SCENE: 1", "SFX: bark", "SFX: wind", "AJJA: Woof!", "SFX: slurp", "KID: Yum!"])).toEqual(["SCENE: 1", "SFX: bark", "AJJA: Woof!", "KID: Yum!"]);
   });
 });

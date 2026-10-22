@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { assetKeyFromUrl, chapterStamps, checkStatusChange, contentRange, isChapterVoiced, shortHash } from "../src/lifecycle.ts";
+import { assetKeyFromUrl, chapterStamps, checkStatusChange, contentRange, isOpenEpisode, isChapterVoiced, shortHash } from "../src/lifecycle.ts";
 
 describe("status changes", () => {
   const all = { renderedChapters: 8, totalChapters: 8 };
+  it("archives anything not yet published, for good", () => {
+    expect(checkStatusChange("chapter-pending", "archived", all)).toBeNull();
+    expect(checkStatusChange("approved", "archived", all)).toBeNull();
+    expect(checkStatusChange("uploading", "archived", all)).toMatch(/uploading/);
+    expect(checkStatusChange("archived", "pending", all)).toMatch(/stays archived/);
+    expect(isOpenEpisode("archived")).toBe(false);
+    expect(isOpenEpisode("posted")).toBe(false);
+    expect(isOpenEpisode("chapter-pending")).toBe(true);
+  });
   it("approves only when every chapter has video", () => {
     expect(checkStatusChange("pending", "approved", all)).toBeNull();
     expect(checkStatusChange("pending", "approved", { renderedChapters: 7, totalChapters: 8 })).toMatch(/7\/8/);
