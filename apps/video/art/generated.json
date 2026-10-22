@@ -45,10 +45,9 @@
   "license": "commercial"
  },
  "dholak": {
-  "bytes": 39354,
   "file": "dholak.svg",
-  "id": "gen_ejcB02jWnZcaBcWp",
-  "license": "commercial"
+  "source": "candidates/dholak.drawn.svg",
+  "note": "hand-drawn, owner's pick 2026-10-22"
  },
  "dholak.drawn": {
   "file": "candidates/dholak.drawn.svg",

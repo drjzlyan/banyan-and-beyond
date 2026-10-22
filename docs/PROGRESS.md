@@ -200,13 +200,19 @@ A ~7-min story ≈ 850–950 words ≈ 4,500–5,200 TTS chars → 2 nights of v
     - **Cost to finish the story world:** about 45–70 more credits (cast, animals with their own small pilot, places, props). The owner needs to top up before Phase 2.
   - Dev harnesses (gitignored): `dev/puppet.tsx`, `dev/variants.tsx`, `dev/story.tsx`, `dev/sounds.tsx`.
 
+- **2026-10-22, evening (owner's picks applied):**
+  - **Dholak:** the hand-drawn one.
+  - **Sounds:** 18 new recordings — BigSoundBank CC0, with BigSoundBank and TTS source kinds added to `build-sounds.py` and a rebuild verified byte-for-byte on duration.
+    - The gasp is the Kid saying "Whoa!".
+    - The new synths are the festive dholak chaal (drum) and a straight-down slide whistle (slip).
+    - Synths that recordings replaced were removed. All 41 sounds have exactly one source.
+  - **Monkey:** still open (the owner rejected the siamang). Three voiced takes in the monkey's own Aura voice are on the Round 2 page.
+  - **Puppet look verdict:** not given yet.
+
 ## 6. Deferred owner items (everything else is built)
 
-0. **Pick on three pages:**
-   - Sound Check Round 2 (21 sounds)
-   - Dholak Pick
-   - Puppet Pilot Review: approve the look or say what to change
-   Then Claude applies the picks.
+0. **Monkey sound:** pick one of the voiced takes on Sound Check Round 2.
+   **Puppet look:** give a verdict on Puppet Pilot Review.
 0b. **Top up Inspyry credits** (about 45–70 more) before Phase 2. 18 are left.
 0c. **Ear-check the character voices** on the first standalone story. The nightly cron archives the old episode and starts one, or press New story.
 1. **Ear check** — after deploying the branch: Studio → Voice Lab, pick Ajja and Kid voices and pitch, save, then use Re-voice on chapter 1. Until then use the verification artifact above.
