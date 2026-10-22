@@ -47,11 +47,15 @@ for (const [id, rig] of Object.entries(rigs)) {
       const own = part.shapes.map((i) => paths[i]);
       const outline = own.map((t) => t.replace(/fill="[^"]+"/, `fill="${rig.outline.colour}" stroke="${rig.outline.colour}" stroke-width="${rig.outline.width}" stroke-linejoin="round"`));
       const details = info.flatMap((p, i) => (detailOwner.get(i) === name ? [p.tag] : []));
-      const clip = part.capsule ? capsule(...part.capsule) : null;
+      // the clip is a capsule (rounded at the joint, at the limb's half-width) plus boxes for hands and feet
+      const clipParts = [...(part.capsule ? [capsule(...part.capsule)] : []), ...(part.boxes ?? []).map(box)];
+      // one <path> per shape: a clipPath unions its children, whereas one combined path cancels where
+      // a capsule and a box run in opposite directions (it left a hole at the ankles)
+      const clip = clipParts.length ? clipParts : null;
       // a skin-coloured capsule under the shapes covers notches where the art let something cross the limb
       if (part.fill) outline.push(`<path d="${capsule(part.fill[1], part.fill[2], part.fill[3])}" fill="${part.fill[0]}"/>`);
       body = clip
-        ? `<defs><clipPath id="${cid}"><path d="${clip}"/></clipPath></defs><g clip-path="url(#${cid})">${outline.join("")}${own.join("")}${details.join("")}</g>`
+        ? `<defs><clipPath id="${cid}">${clip.map((d) => `<path d="${d}"/>`).join("")}</clipPath></defs><g clip-path="url(#${cid})">${outline.join("")}${own.join("")}${details.join("")}</g>`
         : `${outline.join("")}${own.join("")}${details.join("")}`;
     } else {
       const skip = new Set([...(part.skip ?? []), ...detailOwner.keys()]);

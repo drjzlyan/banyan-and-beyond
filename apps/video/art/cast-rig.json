@@ -1,5 +1,5 @@
 {
-  "$comment": "Cut-out puppet rigs for story characters (Phase 1 pilot, 2026-10-22). Units are each SVG's own viewBox (measured on a grid render). `pnpm --filter @banyan/video rig-cast` writes src/art/cast/<id>.<part>.svg, all in the source's viewBox so parts stack exactly. A part is either `clip` (every path of the art, minus `skip`, clipped to a polygon: good for head and torso) or `shapes` (only those path indexes, drawn whole over a dark outline stroke that replaces the art's shared silhouette: good for limbs, which must move away from what overlaps them). `joint` rounds a limb cut into a capsule so bends hide the seam. `pivot` is where the part turns. `fill` lays a skin-coloured capsule under a limb's shapes, to cover notches where the source art let something (a braid) cross it. `plaits` are braid segments drawn in code where the source braid crossed the T-posed arm (the art there is cut out, or a squared dark bar would remain once the arm moves).",
+  "$comment": "Cut-out puppet rigs for story characters (Phase 1 pilot, 2026-10-22). Units are each SVG's own viewBox (measured on a grid render). `pnpm --filter @banyan/video rig-cast` writes src/art/cast/<id>.<part>.svg, all in the source's viewBox so parts stack exactly. A part is either `clip` (every path of the art, minus `skip`, clipped to a polygon: good for head and torso) or `shapes` (only those path indexes, drawn whole over a dark outline stroke that replaces the art's shared silhouette: good for limbs, which must move away from what overlaps them). `joint` rounds a limb cut into a capsule so bends hide the seam. `pivot` is where the part turns. `fill` lays a skin-coloured capsule under a limb's shapes, to cover notches where the source art let something (a braid) cross it. `plaits` are braid segments drawn in code where the source braid crossed the T-posed arm (the art there is cut out, or a squared dark bar would remain once the arm moves). `parent` nests a part inside another (it turns with it); a child below its parent's z is drawn behind the parent. `skeleton` gives the leg joints to the motion model (core/motion.ts): hips, knees and ankles at rest. Joints are rounded at the limb's own half-width (plus its outline), so the two pieces overlap exactly when the joint bends; hands and feet are `boxes` of their own instead of wide circles, which would carry a chunk of the neighbouring segment.",
   "girl": {
     "source": "art/cast/girl.svg",
     "inspyry": "gen_sGUNfGguRf9FUmDv",
@@ -14,159 +14,119 @@
       "width": 9
     },
     "parts": {
-      "legL": {
+      "thighL": {
         "shapes": [
           2
         ],
+        "capsule": [
+          [
+            470,
+            700
+          ],
+          [
+            469,
+            828
+          ],
+          33
+        ],
+        "pivot": [
+          470,
+          716
+        ],
+        "z": 0
+      },
+      "shinL": {
+        "shapes": [
+          2
+        ],
+        "capsule": [
+          [
+            469,
+            828
+          ],
+          [
+            469,
+            890
+          ],
+          30
+        ],
         "details": [
           405,
-          700,
+          835,
           512,
           960
         ],
         "pivot": [
-          462,
-          712
+          469,
+          828
         ],
-        "z": 0
+        "z": 0,
+        "parent": "thighL",
+        "boxes": [
+          [
+            398,
+            878,
+            516,
+            975
+          ]
+        ]
       },
-      "legR": {
+      "thighR": {
         "shapes": [
           3
         ],
+        "capsule": [
+          [
+            566,
+            700
+          ],
+          [
+            566,
+            828
+          ],
+          33
+        ],
+        "pivot": [
+          566,
+          716
+        ],
+        "z": 0
+      },
+      "shinR": {
+        "shapes": [
+          3
+        ],
+        "capsule": [
+          [
+            566,
+            828
+          ],
+          [
+            566,
+            890
+          ],
+          30
+        ],
         "details": [
           525,
-          700,
+          835,
           630,
           960
         ],
         "pivot": [
-          574,
-          712
+          566,
+          828
         ],
-        "z": 0
-      },
-      "armL": {
-        "shapes": [
-          5
-        ],
-        "capsule": [
+        "z": 0,
+        "parent": "thighR",
+        "boxes": [
           [
-            426,
-            476
-          ],
-          [
-            326,
-            473
-          ],
-          29
-        ],
-        "pivot": [
-          424,
-          474
-        ],
-        "z": 1,
-        "fill": [
-          "#6b4423",
-          [
-            424,
-            476
-          ],
-          [
-            330,
-            473
-          ],
-          17
+            520,
+            878,
+            640,
+            975
+          ]
         ]
-      },
-      "foreL": {
-        "shapes": [
-          5
-        ],
-        "capsule": [
-          [
-            326,
-            473
-          ],
-          [
-            150,
-            470
-          ],
-          70
-        ],
-        "details": [
-          190,
-          405,
-          326,
-          505
-        ],
-        "pivot": [
-          326,
-          473
-        ],
-        "z": 1,
-        "parent": "armL"
-      },
-      "armR": {
-        "shapes": [
-          6
-        ],
-        "capsule": [
-          [
-            607,
-            476
-          ],
-          [
-            707,
-            473
-          ],
-          29
-        ],
-        "pivot": [
-          609,
-          474
-        ],
-        "z": 1,
-        "fill": [
-          "#6b4423",
-          [
-            609,
-            476
-          ],
-          [
-            703,
-            473
-          ],
-          17
-        ]
-      },
-      "foreR": {
-        "shapes": [
-          6
-        ],
-        "capsule": [
-          [
-            707,
-            473
-          ],
-          [
-            880,
-            470
-          ],
-          70
-        ],
-        "details": [
-          707,
-          405,
-          845,
-          505
-        ],
-        "pivot": [
-          707,
-          473
-        ],
-        "z": 1,
-        "parent": "armR"
       },
       "torso": {
         "clip": [
@@ -225,6 +185,168 @@
         ],
         "z": 2
       },
+      "armL": {
+        "shapes": [
+          5
+        ],
+        "capsule": [
+          [
+            426,
+            476
+          ],
+          [
+            326,
+            473
+          ],
+          29
+        ],
+        "pivot": [
+          424,
+          474
+        ],
+        "z": 1,
+        "fill": [
+          "#6b4423",
+          [
+            424,
+            476
+          ],
+          [
+            330,
+            473
+          ],
+          17
+        ],
+        "parent": "torso"
+      },
+      "foreL": {
+        "shapes": [
+          5
+        ],
+        "capsule": [
+          [
+            326,
+            474
+          ],
+          [
+            286,
+            478
+          ],
+          27
+        ],
+        "pivot": [
+          326,
+          473
+        ],
+        "z": 1,
+        "parent": "armL"
+      },
+      "handL": {
+        "shapes": [
+          5
+        ],
+        "details": [
+          190,
+          405,
+          290,
+          505
+        ],
+        "pivot": [
+          286,
+          478
+        ],
+        "z": 1,
+        "parent": "foreL",
+        "boxes": [
+          [
+            125,
+            398,
+            292,
+            515
+          ]
+        ]
+      },
+      "armR": {
+        "shapes": [
+          6
+        ],
+        "capsule": [
+          [
+            607,
+            476
+          ],
+          [
+            707,
+            473
+          ],
+          29
+        ],
+        "pivot": [
+          609,
+          474
+        ],
+        "z": 1,
+        "fill": [
+          "#6b4423",
+          [
+            609,
+            476
+          ],
+          [
+            703,
+            473
+          ],
+          17
+        ],
+        "parent": "torso"
+      },
+      "foreR": {
+        "shapes": [
+          6
+        ],
+        "capsule": [
+          [
+            707,
+            474
+          ],
+          [
+            748,
+            478
+          ],
+          27
+        ],
+        "pivot": [
+          707,
+          473
+        ],
+        "z": 1,
+        "parent": "armR"
+      },
+      "handR": {
+        "shapes": [
+          6
+        ],
+        "details": [
+          745,
+          405,
+          845,
+          505
+        ],
+        "pivot": [
+          748,
+          478
+        ],
+        "z": 1,
+        "parent": "foreR",
+        "boxes": [
+          [
+            742,
+            398,
+            905,
+            515
+          ]
+        ]
+      },
       "head": {
         "clip": [
           [
@@ -278,7 +400,8 @@
           517,
           428
         ],
-        "z": 3
+        "z": 3,
+        "parent": "torso"
       }
     },
     "plaits": [
@@ -294,6 +417,32 @@
         "y1": 503,
         "w": 30
       }
-    ]
+    ],
+    "skeleton": {
+      "hipL": [
+        470,
+        716
+      ],
+      "kneeL": [
+        469,
+        828
+      ],
+      "ankleL": [
+        469,
+        895
+      ],
+      "hipR": [
+        566,
+        716
+      ],
+      "kneeR": [
+        566,
+        828
+      ],
+      "ankleR": [
+        566,
+        895
+      ]
+    }
   }
 }
